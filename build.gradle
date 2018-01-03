@@ -11,9 +11,18 @@ repositories {
 }
 
 dependencies {
+
+    def AkkaVersion = '2.5.8'
+
     compile 'org.codehaus.groovy:groovy-all:2.3.11'
 
-    compile 'com.typesafe.akka:akka-actor_2.12:2.5.8'
+    compile "com.typesafe.akka:akka-actor_2.12:$AkkaVersion"
+
+//    Persistent Actor
+
+    compile "com.typesafe.akka:akka-persistence_2.12:$AkkaVersion"
+    compile "org.iq80.leveldb:leveldb:0.7"
+    compile "org.fusesource.leveldbjni:leveldbjni-all:1.8"
 
 //    Tests
 
@@ -25,7 +34,7 @@ dependencies {
 
     testCompile 'junit:junit:4.12'
 
-    testCompile 'com.typesafe.akka:akka-testkit_2.12:2.5.6'
+    testCompile "com.typesafe.akka:akka-testkit_2.12:$AkkaVersion"
 
 //    Utils
 
