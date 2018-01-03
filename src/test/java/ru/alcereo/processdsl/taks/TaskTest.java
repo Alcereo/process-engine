@@ -10,6 +10,7 @@ import com.typesafe.config.ConfigFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import ru.alcereo.processdsl.task.Task;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -91,7 +92,7 @@ public class TaskTest {
 
 
             innerPropsBuilder.putAll(resultProps);
-//            innerPropsBuilder.put("test", context.get("test"));
+            innerPropsBuilder.put("test", context.get("test"));
 
             return ask(
                     task,

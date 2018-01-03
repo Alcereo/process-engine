@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.taks;
+package ru.alcereo.processdsl.task;
 
 import akka.actor.AbstractActor;
 import akka.actor.Props;

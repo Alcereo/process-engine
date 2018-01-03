@@ -7,7 +7,6 @@ import akka.testkit.javadsl.TestKit
 import com.typesafe.config.ConfigFactory
 import org.junit.After
 import org.junit.Before
-import ru.alcereo.processdsl.taks.PersistTaskActor
 
 import java.nio.file.Paths
 
