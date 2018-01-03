@@ -10,6 +10,8 @@ import org.junit.Before
 
 import java.nio.file.Paths
 
+import static ru.alcereo.processdsl.task.PersistFSMTask.*
+
 /**
  * Created by alcereo on 03.01.18.
  */
@@ -33,26 +35,26 @@ class PersistFSMTaskTest extends GroovyTestCase {
 
     void testPersisActor(){
         def taskActor = system.actorOf(
-                PersistFSMTask.props("actor-persist-id"),
+                props("actor-persist-id"),
                 "task"
         )
 
         def probe = new TestKit(system)
         def state
 
-        taskActor.tell(new PersistFSMTask.GetStateDataCmd(), probe.getRef())
-        state = probe.expectMsgClass(PersistFSMTask.TaskStateData.class)
+        taskActor.tell(new GetStateDataCmd(), probe.getRef())
+        state = probe.expectMsgClass(TaskStateData.class)
 
         assertEquals(
                 "",
                 state.textToPrint
         )
 
-        taskActor.tell(new PersistFSMTask.GetStateCmd(), probe.getRef())
-        state = probe.expectMsgClass(PersistFSMTask.TaskState.class)
+        taskActor.tell(new GetStateCmd(), probe.getRef())
+        state = probe.expectMsgClass(TaskState.class)
 
         assertEquals(
-                PersistFSMTask.TaskState.NEW,
+                TaskState.NEW,
                 state
         )
 
@@ -65,98 +67,62 @@ class PersistFSMTaskTest extends GroovyTestCase {
         def state
 
         taskActor = system.actorOf(
-                PersistFSMTask.props("actor-persist-id"),
+                props("actor-persist-id"),
                 "task"
         )
 
-//        Check state - NEW
+        def checkState = { String msg, TaskState stateEnum ->
+            taskActor.tell(new GetStateDataCmd(), probe.getRef())
+            state = probe.expectMsgClass(TaskStateData.class)
+
+            assertEquals(
+                    msg,
+                    state.textToPrint
+            )
+
+            taskActor.tell(new GetStateCmd(), probe.getRef())
+            state = probe.expectMsgClass(TaskState.class)
+
+            assertEquals(
+                    stateEnum,
+                    state
+            )
+        }
+
 
         println " ------ Check state - NEW --------- "
+        checkState("", TaskState.NEW)
 
-        taskActor.tell(new PersistFSMTask.GetStateDataCmd(), probe.getRef())
-        state = probe.expectMsgClass(PersistFSMTask.TaskStateData.class)
-
-        assertEquals(
-                "",
-                state.textToPrint
-        )
-
-        taskActor.tell(new PersistFSMTask.GetStateCmd(), probe.getRef())
-        state = probe.expectMsgClass(PersistFSMTask.TaskState.class)
-
-        assertEquals(
-                PersistFSMTask.TaskState.NEW,
-                state
-        )
-
-//        Send prepare
 
         println " ------ Send prepared command --------- "
-
+        def textToPrint = "This text will printed"
         def preparedProps = [
-                "text": "This text will printed"
+                "text": textToPrint
         ]
-
-        taskActor.tell(new PersistFSMTask.PrepareCmd(preparedProps), probe.getRef())
-        def preparedEvt = probe.expectMsgClass(PersistFSMTask.PreparedEvt.class)
-
+        taskActor.tell(new PrepareCmd(preparedProps), probe.getRef())
+        def preparedEvt = probe.expectMsgClass(PreparedEvt.class)
         assertEquals(
-                "This text will printed",
+                textToPrint,
                 preparedEvt.textToPrint
         )
 
-//        Check state - PREPARED
 
         println " ------ Check state - PREPARED --------- "
+        checkState(textToPrint, TaskState.PREPARED)
 
-        taskActor.tell(new PersistFSMTask.GetStateDataCmd(), probe.getRef())
-        state = probe.expectMsgClass(PersistFSMTask.TaskStateData.class)
-
-        assertEquals(
-                "This text will printed",
-                state.textToPrint
-        )
-
-        taskActor.tell(new PersistFSMTask.GetStateCmd(), probe.getRef())
-        state = probe.expectMsgClass(PersistFSMTask.TaskState.class)
-
-        assertEquals(
-                PersistFSMTask.TaskState.PREPARED,
-                state
-        )
-
-//        KILL
 
         println " ------ KILL --------- "
-
         taskActor.tell(PoisonPill.instance, ActorRef.noSender())
-
+        Thread.sleep(100)  // Нужно нормальное подтверждение
         taskActor = system.actorOf(
-                PersistFSMTask.props("actor-persist-id"),
+                props("actor-persist-id"),
                 "task"
         )
+        Thread.sleep(100)  // Нужно нормальное подтверждение
 
-        Thread.sleep(100)
-
-//        Check same state
 
         println " ------ Check state - PREPARED --------- "
-
-        taskActor.tell(new PersistFSMTask.GetStateDataCmd(), probe.getRef())
-        state = probe.expectMsgClass(PersistFSMTask.TaskStateData.class)
-
-        assertEquals(
-                "This text will printed",
-                state.textToPrint
-        )
-
-        taskActor.tell(new PersistFSMTask.GetStateCmd(), probe.getRef())
-        state = probe.expectMsgClass(PersistFSMTask.TaskState.class)
-
-        assertEquals(
-                PersistFSMTask.TaskState.PREPARED,
-                state
-        )
+        checkState(textToPrint, TaskState.PREPARED)
 
     }
 }

@@ -10,6 +10,8 @@ import org.junit.Before
 
 import java.nio.file.Paths
 
+import static ru.alcereo.processdsl.task.PersistTaskActor.*
+
 /**
  * Created by alcereo on 03.01.18.
  */
@@ -34,17 +36,17 @@ class PersistTaskActorTest extends GroovyTestCase{
 
     void testPersisActor(){
         def taskActor = system.actorOf(
-                PersistTaskActor.props("actor-persist-id"),
+                props("actor-persist-id"),
                 "task"
         )
 
         def probe = new TestKit(system)
 
-        taskActor.tell(new PersistTaskActor.GetStateMsg(), probe.getRef())
-        def state = probe.expectMsgClass(PersistTaskActor.TaskState.class)
+        taskActor.tell(new GetStateMsg(), probe.getRef())
+        def state = probe.expectMsgClass(TaskState.class)
 
         assertEquals(
-                PersistTaskActor.TaskState.Stage.NEW,
+                TaskState.Stage.NEW,
                 state.stage
         )
 
@@ -52,17 +54,17 @@ class PersistTaskActorTest extends GroovyTestCase{
 
     void testPrepareTestActor() {
         def taskActor = system.actorOf(
-                PersistTaskActor.props("actor-persist-id"),
+                props("actor-persist-id"),
                 "task"
         )
 
         def probe = new TestKit(system)
 
-        taskActor.tell(new PersistTaskActor.GetStateMsg(), probe.getRef())
-        def state = probe.expectMsgClass(PersistTaskActor.TaskState.class)
+        taskActor.tell(new GetStateMsg(), probe.getRef())
+        def state = probe.expectMsgClass(TaskState.class)
 
         assertEquals(
-                PersistTaskActor.TaskState.Stage.NEW,
+                TaskState.Stage.NEW,
                 state.stage
         )
 
@@ -70,19 +72,19 @@ class PersistTaskActorTest extends GroovyTestCase{
                 "text": "This text will printed"
         ]
 
-        taskActor.tell(new PersistTaskActor.PrepareCmd(preparedProps), probe.getRef())
-        def preparedEvt = probe.expectMsgClass(PersistTaskActor.PreparedEvt.class)
+        taskActor.tell(new PrepareCmd(preparedProps), probe.getRef())
+        def preparedEvt = probe.expectMsgClass(PreparedEvt.class)
 
         assertEquals(
                 "This text will printed",
                 preparedEvt.textToPrint
         )
 
-        taskActor.tell(new PersistTaskActor.GetStateMsg(), probe.getRef())
-        state = probe.expectMsgClass(PersistTaskActor.TaskState.class)
+        taskActor.tell(new GetStateMsg(), probe.getRef())
+        state = probe.expectMsgClass(TaskState.class)
 
         assertEquals(
-                PersistTaskActor.TaskState.Stage.PREPARED,
+                TaskState.Stage.PREPARED,
                 state.stage
         )
 
@@ -92,17 +94,17 @@ class PersistTaskActorTest extends GroovyTestCase{
 
     void testStateReceiveOnExit() {
         def taskActor = system.actorOf(
-                PersistTaskActor.props("actor-persist-id"),
+                props("actor-persist-id"),
                 "task"
         )
 
         def probe = new TestKit(system)
 
-        taskActor.tell(new PersistTaskActor.GetStateMsg(), probe.getRef())
-        def state = probe.expectMsgClass(PersistTaskActor.TaskState.class)
+        taskActor.tell(new GetStateMsg(), probe.getRef())
+        def state = probe.expectMsgClass(TaskState.class)
 
         assertEquals(
-                PersistTaskActor.TaskState.Stage.NEW,
+                TaskState.Stage.NEW,
                 state.stage
         )
 
@@ -110,19 +112,19 @@ class PersistTaskActorTest extends GroovyTestCase{
                 "text": "This text will printed"
         ]
 
-        taskActor.tell(new PersistTaskActor.PrepareCmd(preparedProps), probe.getRef())
-        def preparedEvt = probe.expectMsgClass(PersistTaskActor.PreparedEvt.class)
+        taskActor.tell(new PrepareCmd(preparedProps), probe.getRef())
+        def preparedEvt = probe.expectMsgClass(PreparedEvt.class)
 
         assertEquals(
                 "This text will printed",
                 preparedEvt.textToPrint
         )
 
-        taskActor.tell(new PersistTaskActor.GetStateMsg(), probe.getRef())
-        state = probe.expectMsgClass(PersistTaskActor.TaskState.class)
+        taskActor.tell(new GetStateMsg(), probe.getRef())
+        state = probe.expectMsgClass(TaskState.class)
 
         assertEquals(
-                PersistTaskActor.TaskState.Stage.PREPARED,
+                TaskState.Stage.PREPARED,
                 state.stage
         )
 
@@ -131,15 +133,15 @@ class PersistTaskActorTest extends GroovyTestCase{
         Thread.sleep(100)
 
         taskActor = system.actorOf(
-                PersistTaskActor.props("actor-persist-id"),
+                props("actor-persist-id"),
                 "task"
         )
 
-        taskActor.tell(new PersistTaskActor.GetStateMsg(), probe.getRef())
-        state = probe.expectMsgClass(PersistTaskActor.TaskState.class)
+        taskActor.tell(new GetStateMsg(), probe.getRef())
+        state = probe.expectMsgClass(TaskState.class)
 
         assertEquals(
-                PersistTaskActor.TaskState.Stage.PREPARED,
+                TaskState.Stage.PREPARED,
                 state.stage
         )
 
