@@ -3,6 +3,7 @@ package ru.alcereo.processdsl.task
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.PoisonPill
+import akka.actor.Props
 import akka.testkit.javadsl.TestKit
 import com.typesafe.config.ConfigFactory
 import org.junit.After
@@ -33,9 +34,37 @@ class PersistFSMTaskTest extends GroovyTestCase {
 
     }
 
+    static class PrintTaskActor extends PersistFSMTask{
+
+        PrintTaskActor(String persistentId) {
+            super(persistentId)
+        }
+
+        static Props props(String persistentId){
+            Props.create(
+                    PrintTaskActor.class,
+                    { -> new PrintTaskActor(persistentId)}
+            )
+        }
+
+        @Override
+        void handleGetState(TaskStateData taskStateData) {
+        }
+
+        @Override
+        void handleExecution(TaskStateData taskStateData) {
+            println " ======= EXECUTED: ${taskStateData.properties.get('text')} ======= "
+        }
+
+        @Override
+        void handlePrepare(TaskStateData taskStateData) {
+            println " ======= PREPARED: ${taskStateData.properties.get('text')} ======= "
+        }
+    }
+
     void testPersisActor(){
         def taskActor = system.actorOf(
-                props("actor-persist-id"),
+                PrintTaskActor.props("actor-persist-id"),
                 "task"
         )
 
@@ -46,8 +75,8 @@ class PersistFSMTaskTest extends GroovyTestCase {
         state = probe.expectMsgClass(TaskStateData.class)
 
         assertEquals(
-                "",
-                state.textToPrint
+                [:],
+                state.properties
         )
 
         taskActor.tell(new GetStateCmd(), probe.getRef())
@@ -67,17 +96,17 @@ class PersistFSMTaskTest extends GroovyTestCase {
         def state
 
         taskActor = system.actorOf(
-                props("actor-persist-id"),
+                PrintTaskActor.props("actor-persist-id"),
                 "task"
         )
 
-        def checkState = { String msg, TaskState stateEnum ->
+        def checkState = { Map msg, TaskState stateEnum ->
             taskActor.tell(new GetStateDataCmd(), probe.getRef())
             state = probe.expectMsgClass(TaskStateData.class)
 
             assertEquals(
                     msg,
-                    state.textToPrint
+                    state.properties
             )
 
             taskActor.tell(new GetStateCmd(), probe.getRef())
@@ -91,7 +120,7 @@ class PersistFSMTaskTest extends GroovyTestCase {
 
 
         println " ------ Check state - NEW --------- "
-        checkState("", TaskState.NEW)
+        checkState([:], TaskState.NEW)
 
 
         println " ------ Send prepared command --------- "
@@ -102,27 +131,27 @@ class PersistFSMTaskTest extends GroovyTestCase {
         taskActor.tell(new PrepareCmd(preparedProps), probe.getRef())
         def preparedEvt = probe.expectMsgClass(PreparedEvt.class)
         assertEquals(
-                textToPrint,
-                preparedEvt.textToPrint
+                preparedProps,
+                preparedEvt.properties
         )
 
 
         println " ------ Check state - PREPARED --------- "
-        checkState(textToPrint, TaskState.PREPARED)
+        checkState(preparedProps, TaskState.PREPARED)
 
 
         println " ------ KILL --------- "
         taskActor.tell(PoisonPill.instance, ActorRef.noSender())
         Thread.sleep(100)  // Нужно нормальное подтверждение
         taskActor = system.actorOf(
-                props("actor-persist-id"),
+                PrintTaskActor.props("actor-persist-id"),
                 "task"
         )
         Thread.sleep(100)  // Нужно нормальное подтверждение
 
 
         println " ------ Check state - PREPARED --------- "
-        checkState(textToPrint, TaskState.PREPARED)
+        checkState(preparedProps, TaskState.PREPARED)
 
     }
 }

@@ -1,6 +1,5 @@
 package ru.alcereo.processdsl.task;
 
-import akka.actor.Props;
 import akka.japi.pf.FI;
 import akka.persistence.fsm.AbstractPersistentFSM;
 import akka.persistence.fsm.PersistentFSM;
@@ -8,18 +7,19 @@ import lombok.Data;
 import lombok.Value;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Created by alcereo on 03.01.18.
  */
-public class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTask.TaskState, PersistFSMTask.TaskStateData, PersistFSMTask.TaskEvents> {
+public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTask.TaskState, PersistFSMTask.TaskStateData, PersistFSMTask.TaskEvents> {
 
     private final String persistentId;
 
-    public static Props props(String persistenceId) {
-        return Props.create(PersistFSMTask.class, () -> new PersistFSMTask(persistenceId));
-    }
+//    public static Props props(String persistenceId) {
+//        return Props.create(PersistFSMTask.class, () -> new PersistFSMTask(persistenceId));
+//    }
 
     @Override
     public String persistenceId() {
@@ -30,7 +30,7 @@ public class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTask.TaskSta
     @Override
     public TaskStateData applyEvent(TaskEvents domainEvent, TaskStateData currentData) {
         if (domainEvent instanceof PreparedEvt){
-            currentData.textToPrint = ((PreparedEvt) domainEvent).textToPrint;
+            currentData.properties = ((PreparedEvt) domainEvent).properties;
             return currentData;
         }else if (domainEvent instanceof SuccessExecutedEvt){
             return currentData;
@@ -53,7 +53,7 @@ public class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTask.TaskSta
         when(TaskState.NEW,
                 matchEvent(PrepareCmd.class, (prepareCmd, taskStateData) -> {
                     PreparedEvt evt = new PreparedEvt(
-                            prepareCmd.properties.get("text").toString()
+                            prepareCmd.properties
                     );
                     return goTo(TaskState.PREPARED)
                             .applying(evt)
@@ -74,16 +74,11 @@ public class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTask.TaskSta
 
     }
 
-    private void handleGetState(TaskStateData taskStateData) {
-        System.out.println(" =========== " + "State is :"+ stateName() + " =========== ");
-    }
+    abstract void handleGetState(TaskStateData taskStateData);
 
-    private void handleExecution(TaskStateData taskStateData) {
-        System.out.println(" =========== " + taskStateData.textToPrint + " =========== ");
-    }
+    abstract void handleExecution(TaskStateData taskStateData);
 
-    private void handlePrepare(TaskStateData taskStateData) {
-    }
+    abstract void handlePrepare(TaskStateData taskStateData);
 
 //    State
 
@@ -108,7 +103,7 @@ public class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTask.TaskSta
 
     @Data
     static class TaskStateData {
-        String textToPrint = "";
+        Map<String, Object> properties = new HashMap<>();
     }
 
 //    Commands
@@ -140,7 +135,7 @@ public class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTask.TaskSta
 
     @Value
     public static final class PreparedEvt implements TaskEvents{
-        String textToPrint;
+        Map<String, Object> properties;
     }
 
     @Value
