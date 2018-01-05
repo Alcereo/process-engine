@@ -45,10 +45,10 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
         startWith(TaskState.NEW, new TaskStateData());
 
         FI.Apply2<GetStateDataCmd, TaskStateData, State<TaskState, TaskStateData, TaskEvents>> getStateDataApply =
-                (getStateDataCmd, taskStateData) -> stay().replying(taskStateData).andThen(exec(this::handleGetState));
+                (getStateDataCmd, taskStateData) -> stay().replying(taskStateData);
 
         FI.Apply2<GetStateCmd, TaskStateData, State<TaskState, TaskStateData, TaskEvents>> getStateApply =
-                (getStateDataCmd, taskStateData) -> stay().replying(stateName()).andThen(exec(this::handleGetState));
+                (getStateDataCmd, taskStateData) -> stay().replying(stateName());
 
         when(TaskState.NEW,
                 matchEvent(PrepareCmd.class, (prepareCmd, taskStateData) -> {
@@ -74,11 +74,9 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
 
     }
 
-    abstract void handleGetState(TaskStateData taskStateData);
+    public abstract void handleExecution(TaskStateData taskStateData);
 
-    abstract void handleExecution(TaskStateData taskStateData);
-
-    abstract void handlePrepare(TaskStateData taskStateData);
+    public abstract void handlePrepare(TaskStateData taskStateData);
 
 //    State
 
@@ -102,7 +100,7 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
     }
 
     @Data
-    static class TaskStateData {
+    public static class TaskStateData {
         Map<String, Object> properties = new HashMap<>();
     }
 
