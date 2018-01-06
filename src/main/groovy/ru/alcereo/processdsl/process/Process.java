@@ -10,10 +10,15 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
 import lombok.val;
+import ru.alcereo.processdsl.task.PersistFSMTask;
+import scala.Option;
 import scala.Tuple2;
 
 import java.io.Serializable;
 import java.util.*;
+import java.util.stream.Collectors;
+
+import static ru.alcereo.processdsl.task.PersistFSMTask.*;
 
 /**
  * Created by alcereo on 01.01.18.
@@ -23,8 +28,6 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
     private final String persistenceId;
-
-    private final Map<ActorRef, TaskExecutionContext> childTaskActorsCache = new HashMap<>();
 
     public static Props props(String persistenceId){
         return Props.create(Process.class, (akka.japi.Creator<Process>) () -> new Process(persistenceId));
@@ -87,7 +90,20 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
                     .event(AppendToContextCmd.class,    this::handleAppendToContext)
                     .event(SetContextCmd.class,         this::handleSetContext)
                     .event(GetContextCmd.class,         this::handleGetContext)
+                    .event(GetTasksStatesCmd.class,     this::handleGetTasksState)
+                    .event(TaskState.class,             this::handleTaskState)
+                    .event(StartProcessCmd.class,       this::handleStartProcess)
+//                    .event(TaskEvents.class,            this::handleTasksEvents)
                     .event(RecoverErrorOccurred.class, (recoverErrorOccurred, stateData) -> goTo(State.RECOVERING_ERROR))
+        );
+
+        when(State.START,
+                matchEvent(GetStateDataCmd.class,       this::handleGetStateData)
+                    .event(GetStateCmd.class,           this::handleGetState)
+                    .event(GetChildsCmd.class,          this::handleGetChilds)
+                    .event(GetTasksStatesCmd.class,     this::handleGetTasksState)
+                    .event(TaskState.class,             this::handleTaskState)
+                    .event(TaskEvents.class,            this::handleTasksEvents)
         );
 
         when(State.RECOVERING_ERROR,
@@ -102,10 +118,7 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
         log.debug("Applying event. Recovery: {}. EventData: {}",recoveryRunning() ,domainEvent);
 
         if (domainEvent instanceof AddLastTaskEvt) {
-            val context = ((AddLastTaskEvt) domainEvent).context;
-
-            currentData.taskContextSet.remove(context); // Чтобы всегда оставался последний
-            currentData.taskContextSet.add(context);
+            currentData.addLastTask(((AddLastTaskEvt) domainEvent).context);
         } else if (domainEvent instanceof SetToReadyEvt){
 
             if (recoveryRunning()) {
@@ -125,16 +138,95 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
     }
 
     private void createChildsForReadyState(StateData stateData) {
-        childTaskActorsCache.clear();
-        for (val taskContext : stateData.taskContextSet) {
+        stateData.childTaskActorsCache.clear();
+        for (val taskContext : stateData.getTasksContexts()) {
             if (taskContext.taskProp.equals(Props.empty()))
                 throw new RuntimeException("Props is empty!");
             ActorRef taskRef = getContext().actorOf(taskContext.taskProp, taskContext.identifier.toString());
             getContext().watch(taskRef);
 
-            childTaskActorsCache.put(taskRef, taskContext);
+            stateData.childTaskActorsCache.put(taskRef, taskContext);
+
+            //Отправим запрос, чтобы узнать статус таски. Актор персистентный,
+            // задача могла быть создана уже в каком-нибудь не дефолтном статусе
+            taskRef.tell(new GetTaskStateCmd(), getSelf());
         }
     }
+
+    /**========================================*
+     *                 STATE                   *
+     *=========================================*/
+
+    public enum State implements PersistentFSM.FSMState {
+        NEW("New empty process"),
+        RECOVERING_ERROR("Error occurred when recover"),
+        PREPARING("Process in preparing task context task"),
+        READY("Ready to start"),
+        START("Process is executing tasks");
+
+        private final String identifier;
+
+        State(String identifier) {
+            this.identifier = identifier;
+        }
+
+        @Override
+        public String identifier() {
+            return identifier;
+        }
+    }
+
+    @Data
+    public static class StateData {
+        private ArrayList<TaskExecutionContext> taskContextSet = new ArrayList<>();
+        private final Map<UUID, PersistFSMTask.TaskState> tasksStatuses = new HashMap<>();
+        private final Map<ActorRef, TaskExecutionContext> childTaskActorsCache = new HashMap<>();
+        private Map<String, Object> processContext = new HashMap<>();
+
+//        util func
+
+        void addLastTask(TaskExecutionContext taskContext){
+            taskContextSet.add(taskContext);
+        }
+
+        public Option<UUID> getIdentifierByActorRef(ActorRef ref){
+            return Option.apply(childTaskActorsCache.get(ref))
+                    .map(taskContext -> taskContext.identifier);
+        }
+
+        public Option<ActorRef> getActorRefByIdentifier(UUID identifier) {
+            return Option.apply(childTaskActorsCache
+                            .entrySet().stream()
+                            .filter(entry -> entry.getValue().identifier.equals(identifier))
+                            .map(Map.Entry::getKey)
+                            .findFirst().orElse(null));
+        }
+
+        public void setTaskState(UUID identifier, TaskState taskState) {
+            tasksStatuses.put(identifier, taskState);
+        }
+
+        public List<TaskExecutionContext> getTasksContexts() {
+            return taskContextSet;
+        }
+
+        public boolean containsIdentifier(UUID identifier) {
+            return taskContextSet.stream().anyMatch(context -> context.identifier.equals(identifier));
+        }
+
+        public Option<PersistFSMTask.TaskState> taskState(UUID identifier){
+            return Option.apply(tasksStatuses.get(identifier));
+        }
+
+        public List<ActorRef> getTaskRefs() {
+            return taskContextSet.stream()
+                    .map(TaskExecutionContext::getIdentifier)
+                    .map(this::getActorRefByIdentifier)
+                    .map(actorRefOption -> actorRefOption.fold(() -> null, v1 -> v1))
+                    .collect(Collectors.toList());
+        }
+    }
+
 
     /**========================================*
      *                 HANDLERS                *
@@ -155,6 +247,12 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
             return stay().replying(
                     new TaskAddingError(
                             new RuntimeException("Props is empty")
+                    ));
+
+        if (stateData.containsIdentifier(command.context.identifier))
+            return stay().replying(
+                    new TaskAddingError(
+                            new RuntimeException("Identifier is not unique")
                     ));
 
         AddLastTaskEvt evt = new AddLastTaskEvt(command.context);
@@ -179,7 +277,7 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
 
     private PersistentFSM.State handleGetChilds(GetChildsCmd getStateDataCmd, StateData stateData){
         ChildTaskList replyValue = new ChildTaskList(
-                new ArrayList<>(childTaskActorsCache.keySet())
+                stateData.getTaskRefs()
         );
         return stay()
                 .replying(replyValue);
@@ -207,32 +305,71 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
                 .replying(new ProcessContextMessage(stateData.processContext));
     }
 
-    /**========================================*
-     *                 STATE                   *
-     *=========================================*/
+    private PersistentFSM.State handleTaskState(TaskState taskState, StateData stateData){
 
-    public enum State implements PersistentFSM.FSMState {
-        NEW("New empty process"),
-        RECOVERING_ERROR("Error occurred when recover"),
-        PREPARING("Process in preparing task context task"),
-        READY("Ready to start");
+        return stateData.getIdentifierByActorRef(getSender())
+                .fold(() -> {
+                    log.warning("Get message from not registered child: {}", getSender());
+                    return stay();
+                },
+                identifier -> {
+                    log.debug("Get task state message: {} - {}", getSender(), taskState);
+                    stateData.setTaskState(identifier, taskState);
+                    return stay();
+                }
+        );
+    }
 
-        private final String identifier;
+    private PersistentFSM.State handleGetTasksState(GetTasksStatesCmd command, StateData stateData){
+        return stay()
+                .replying(new TasksStatesMessage(stateData.tasksStatuses));
+    }
 
-        State(String identifier) {
-            this.identifier = identifier;
-        }
+    private PersistentFSM.State handleTasksEvents(TaskEvents event, StateData stateData){
+        log.debug("Get event from task. Event: {}, Task: {}", event, getSender());
 
-        @Override
-        public String identifier() {
-            return identifier;
+        getSender().tell(new GetTaskStateCmd(), getSelf());
+
+        if (event instanceof PreparedEvt){
+            getSender().tell(new ExecuteCmd(), getSelf());
+            return stay();
+        }else {
+            log.error("Unregistered event from task: {}. Actor: {}", event, getSender());
+            return stay();
         }
     }
 
-    @Data
-    public static class StateData {
-        public HashSet<TaskExecutionContext> taskContextSet = new HashSet<>();
-        public Map<String, Object> processContext = new HashMap<>();
+    private PersistentFSM.State handleStartProcess(StartProcessCmd command, StateData stateData){
+
+        TaskExecutionContext firstTaskContext = stateData.getTasksContexts().get(0);
+
+        val taskStateOpt = stateData.taskState(firstTaskContext.identifier);
+
+        if (taskStateOpt.isEmpty())
+            return stay().replying(new ProcessStartError(new RuntimeException("Don`t found first task id in statuses list")));
+
+        if (!taskStateOpt.get().equals(TaskState.NEW))
+            return stay().replying(new ProcessStartError(new RuntimeException("First task not in NEW status")));
+
+
+        val taskRef = stateData.getActorRefByIdentifier(firstTaskContext.identifier);
+
+        if (taskRef.isEmpty())
+            return stay().replying(new ProcessStartError(new RuntimeException("Don`t found task ref by identifier")));
+
+        val propertyIn = new HashMap<String, Object>();
+
+        firstTaskContext.innerPropsFromContext
+                .forEach(strTuple -> propertyIn.put(
+                                            strTuple._2(),
+                                            stateData.getProcessContext().get(strTuple._1())
+                        )
+                );
+
+
+        taskRef.get().tell(new PrepareCmd(propertyIn), getSelf());
+
+        return goTo(State.START).replying(new SuccessStartProcess());
     }
 
     /**========================================*
@@ -254,6 +391,12 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
         Map<String, Object> context;
     }
 
+//    @Value
+//    private class TaskStateChangeEvt implements Events {
+//        ActorRef sender;
+//        PersistFSMTask.TaskState taskState;
+//    }
+//
     /**========================================*
      *                 COMMANDS                *
      *=========================================*/
@@ -297,6 +440,12 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
     @Value
     public static final class GetContextCmd {}
 
+    @Value
+    public static final class GetTasksStatesCmd {}
+
+    @Value
+    public static final class StartProcessCmd {}
+
     /**========================================*
      *                 OTHER                   *
      *=========================================*/
@@ -338,5 +487,18 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
     @Value
     public static final class ProcessContextMessage {
         Map<String, Object> processContext;
+    }
+
+    @Value
+    public static final class TasksStatesMessage {
+        Map<UUID, PersistFSMTask.TaskState> tasksStatuses;
+    }
+
+    @Value
+    public static class SuccessStartProcess {}
+
+    @Value
+    public static class ProcessStartError {
+        RuntimeException e;
     }
 }

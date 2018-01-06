@@ -49,12 +49,12 @@ class PersistFSMTaskTest extends GroovyTestCase {
 
         @Override
         void handleExecution(TaskStateData taskStateData) {
-            println " ======= EXECUTED: ${taskStateData.properties.get('text')} ======= "
+            println " -- EXECUTED: ${taskStateData.properties.get('text')} -- "
         }
 
         @Override
         void handlePrepare(TaskStateData taskStateData) {
-            println " ======= PREPARED: ${taskStateData.properties.get('text')} ======= "
+            println " -- PREPARED: ${taskStateData.properties.get('text')} -- "
         }
     }
 
@@ -75,7 +75,7 @@ class PersistFSMTaskTest extends GroovyTestCase {
                 state.properties
         )
 
-        taskActor.tell(new GetStateCmd(), probe.getRef())
+        taskActor.tell(new GetTaskStateCmd(), probe.getRef())
         state = probe.expectMsgClass(TaskState.class)
 
         assertEquals(
@@ -105,7 +105,7 @@ class PersistFSMTaskTest extends GroovyTestCase {
                     state.properties
             )
 
-            taskActor.tell(new GetStateCmd(), probe.getRef())
+            taskActor.tell(new GetTaskStateCmd(), probe.getRef())
             state = probe.expectMsgClass(TaskState.class)
 
             assertEquals(
@@ -150,4 +150,56 @@ class PersistFSMTaskTest extends GroovyTestCase {
         checkState(preparedProps, TaskState.PREPARED)
 
     }
+
+
+    void testExecuteTask(){
+
+        def taskActor
+        def probe = new TestKit(system)
+        def state
+
+        taskActor = system.actorOf(
+                PrintTaskActor.props("actor-persist-id"),
+                "task"
+        )
+
+        def checkState = { Map msg, TaskState stateEnum ->
+            taskActor.tell(new GetStateDataCmd(), probe.getRef())
+            state = probe.expectMsgClass(TaskStateData.class)
+
+            assertEquals(
+                    msg,
+                    state.properties
+            )
+
+            taskActor.tell(new GetTaskStateCmd(), probe.getRef())
+            state = probe.expectMsgClass(TaskState.class)
+
+            assertEquals(
+                    stateEnum,
+                    state
+            )
+        }
+
+
+        println " ------ Send prepared command --------- "
+        def textToPrint = "This text will printed"
+        def preparedProps = [
+                "text": textToPrint
+        ]
+        taskActor.tell(new PrepareCmd(preparedProps), probe.getRef())
+        probe.expectMsgClass(PreparedEvt)
+
+        taskActor.tell(new ExecuteCmd(), probe.getRef())
+        probe.expectMsgClass(ExecutionStarted)
+
+        checkState(preparedProps, TaskState.EXECUTED)
+
+        taskActor.tell(new ExecutingSuccessFinish(), probe.getRef())
+        probe.expectMsgClass(ExecutingSuccessFinish)
+
+        checkState(preparedProps, TaskState.FINISHED)
+
+    }
+
 }

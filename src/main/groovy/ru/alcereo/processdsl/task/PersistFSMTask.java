@@ -10,6 +10,8 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
+import static ru.alcereo.processdsl.task.PersistFSMTask.TaskState.FINISHED;
+
 /**
  * Created by alcereo on 03.01.18.
  */
@@ -47,7 +49,7 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
         FI.Apply2<GetStateDataCmd, TaskStateData, State<TaskState, TaskStateData, TaskEvents>> getStateDataApply =
                 (getStateDataCmd, taskStateData) -> stay().replying(taskStateData);
 
-        FI.Apply2<GetStateCmd, TaskStateData, State<TaskState, TaskStateData, TaskEvents>> getStateApply =
+        FI.Apply2<GetTaskStateCmd, TaskStateData, State<TaskState, TaskStateData, TaskEvents>> getStateApply =
                 (getStateDataCmd, taskStateData) -> stay().replying(stateName());
 
         when(TaskState.NEW,
@@ -61,15 +63,31 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
                             .replying(evt);
 
                 }).event(GetStateDataCmd.class, getStateDataApply)
-                .event(GetStateCmd.class, getStateApply)
+                .event(GetTaskStateCmd.class, getStateApply)
         );
 
         when(TaskState.PREPARED,
                 matchEvent(ExecuteCmd.class, (executeCmd, taskStateData) ->
                     goTo(TaskState.EXECUTED)
+                        .replying(new ExecutionStarted())
                         .andThen(exec(this::handleExecution))
                 ).event(GetStateDataCmd.class, getStateDataApply)
-                .event(GetStateCmd.class, getStateApply)
+                .event(GetTaskStateCmd.class, getStateApply)
+
+        );
+
+        when(TaskState.EXECUTED,
+                matchEvent(GetStateDataCmd.class, getStateDataApply)
+                    .event(GetTaskStateCmd.class, getStateApply)
+                    .event(ExecutingSuccessFinish.class, (event, taskStateData) -> {
+                        return goTo(FINISHED)
+                                .replying(event);
+                    })
+        );
+
+        when(TaskState.FINISHED,
+                matchEvent(GetStateDataCmd.class, getStateDataApply)
+                        .event(GetTaskStateCmd.class, getStateApply)
         );
 
     }
@@ -121,7 +139,7 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
     public static final class GetStateDataCmd implements Command{}
 
     @Value
-    public static final class GetStateCmd implements Command{}
+    public static final class GetTaskStateCmd implements Command{}
 
 //    Events
     @Override
@@ -129,7 +147,7 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
         return TaskEvents.class;
     }
 
-    interface TaskEvents extends Serializable {}
+    public interface TaskEvents extends Serializable {}
 
     @Value
     public static final class PreparedEvt implements TaskEvents{
@@ -140,5 +158,10 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
     public static final class SuccessExecutedEvt implements TaskEvents{
     }
 
+    @Value
+    public static final class ExecutionStarted implements TaskEvents{}
 
+    @Value
+    public static final class ExecutingSuccessFinish {
+    }
 }
