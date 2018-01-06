@@ -6,8 +6,12 @@ import com.typesafe.config.ConfigFactory
 import org.junit.After
 import org.junit.Before
 import ru.alcereo.processdsl.task.PersistFSMTask
+import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 import java.nio.file.Paths
+
+import static ru.alcereo.processdsl.process.Process.*
+
 /**
  * Created by alcereo on 05.01.18.
  */
@@ -58,15 +62,15 @@ class ProcessTest extends GroovyTestCase {
 
 
     void testProcessCreation(){
-        def process = system.actorOf(Process.props("persistent-process-1"))
+        def process = system.actorOf(props("persistent-process-1"))
         def probe = new TestKit(system)
 
 
-        process.tell(new Process.GetStateCmd(), probe.getRef())
-        probe.expectMsg(Process.State.NEW)
+        process.tell(new GetStateCmd(), probe.getRef())
+        probe.expectMsg(State.NEW)
 
-        process.tell(new Process.GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(Process.StateData.class)
+        process.tell(new GetStateDataCmd(), probe.getRef())
+        def stateData = probe.expectMsgClass(StateData.class)
 
         assertEquals(
                 0,
@@ -78,10 +82,10 @@ class ProcessTest extends GroovyTestCase {
     }
 
     void testAddingContextToList(){
-        def process = system.actorOf(Process.props("persistent-process-1"))
+        def process = system.actorOf(props("persistent-process-1"))
         def probe = new TestKit(system)
 
-        def contextTask1 = new Process.TaskExecutionContext(
+        def contextTask1 = new TaskExecutionContext(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -89,14 +93,14 @@ class ProcessTest extends GroovyTestCase {
                 []
         )
 
-        process.tell(new Process.AddLastTaskCmd(contextTask1), probe.getRef())
-        probe.expectMsgClass(Process.TaskSuccessAdded.class)
+        process.tell(new AddLastTaskCmd(contextTask1), probe.getRef())
+        probe.expectMsgClass(TaskSuccessAdded.class)
 
-        process.tell(new Process.GetStateCmd(), probe.getRef())
-        probe.expectMsg(Process.State.PREPARING)
+        process.tell(new GetStateCmd(), probe.getRef())
+        probe.expectMsg(State.PREPARING)
 
-        process.tell(new Process.GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(Process.StateData.class)
+        process.tell(new GetStateDataCmd(), probe.getRef())
+        def stateData = probe.expectMsgClass(StateData.class)
 
         assertEquals(
                 contextTask1,
@@ -106,11 +110,11 @@ class ProcessTest extends GroovyTestCase {
     }
 
     void testAddingSecondContext(){
-        def process = system.actorOf(Process.props("persistent-process-1"))
+        def process = system.actorOf(props("persistent-process-1"))
         def probe = new TestKit(system)
 
         def contextSet
-        def contextTask1 = new Process.TaskExecutionContext(
+        def contextTask1 = new TaskExecutionContext(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -118,7 +122,7 @@ class ProcessTest extends GroovyTestCase {
                 []
         )
 
-        def contextTask2 = new Process.TaskExecutionContext(
+        def contextTask2 = new TaskExecutionContext(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-2", "text2"),
                 [],
@@ -126,18 +130,18 @@ class ProcessTest extends GroovyTestCase {
                 []
         )
 
-        process.tell(new Process.AddLastTaskCmd(contextTask1), probe.getRef())
-        probe.expectMsgClass(Process.TaskSuccessAdded.class)
+        process.tell(new AddLastTaskCmd(contextTask1), probe.getRef())
+        probe.expectMsgClass(TaskSuccessAdded.class)
 
-        process.tell(new Process.AddLastTaskCmd(contextTask2), probe.getRef())
-        probe.expectMsgClass(Process.TaskSuccessAdded.class)
+        process.tell(new AddLastTaskCmd(contextTask2), probe.getRef())
+        probe.expectMsgClass(TaskSuccessAdded.class)
 
 
-        process.tell(new Process.GetStateCmd(), probe.getRef())
-        probe.expectMsg(Process.State.PREPARING)
+        process.tell(new GetStateCmd(), probe.getRef())
+        probe.expectMsg(State.PREPARING)
 
-        process.tell(new Process.GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(Process.StateData.class)
+        process.tell(new GetStateDataCmd(), probe.getRef())
+        def stateData = probe.expectMsgClass(StateData.class)
 
         assertTrue(stateData.taskContextSet.contains(contextTask1))
         assertTrue(stateData.taskContextSet.contains(contextTask2))
@@ -149,12 +153,12 @@ class ProcessTest extends GroovyTestCase {
     }
 
     void testDupleSecondContext(){
-        def process = system.actorOf(Process.props("persistent-process-1"))
+        def process = system.actorOf(props("persistent-process-1"))
         def probe = new TestKit(system)
 
         def identifier = UUID.randomUUID()
 
-        def contextTask1 = new Process.TaskExecutionContext(
+        def contextTask1 = new TaskExecutionContext(
                 identifier,
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -162,7 +166,7 @@ class ProcessTest extends GroovyTestCase {
                 []
         )
 
-        def contextTask2 = new Process.TaskExecutionContext(
+        def contextTask2 = new TaskExecutionContext(
                 identifier,
                 PrintTaskActor.props("test-actor-2", "text2"),
                 [],
@@ -170,18 +174,18 @@ class ProcessTest extends GroovyTestCase {
                 []
         )
 
-        process.tell(new Process.AddLastTaskCmd(contextTask1), probe.getRef())
-        probe.expectMsgClass(Process.TaskSuccessAdded.class)
+        process.tell(new AddLastTaskCmd(contextTask1), probe.getRef())
+        probe.expectMsgClass(TaskSuccessAdded.class)
 
-        process.tell(new Process.AddLastTaskCmd(contextTask2), probe.getRef())
-        probe.expectMsgClass(Process.TaskSuccessAdded.class)
+        process.tell(new AddLastTaskCmd(contextTask2), probe.getRef())
+        probe.expectMsgClass(TaskSuccessAdded.class)
 
 
-        process.tell(new Process.GetStateCmd(), probe.getRef())
-        probe.expectMsg(Process.State.PREPARING)
+        process.tell(new GetStateCmd(), probe.getRef())
+        probe.expectMsg(State.PREPARING)
 
-        process.tell(new Process.GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(Process.StateData.class)
+        process.tell(new GetStateDataCmd(), probe.getRef())
+        def stateData = probe.expectMsgClass(StateData.class)
 
         assertEquals(
                 contextTask2.taskProp,
@@ -200,10 +204,10 @@ class ProcessTest extends GroovyTestCase {
     }
 
     void testSetToReadyState(){
-        def process = system.actorOf(Process.props("persistent-process-1"))
+        def process = system.actorOf(props("persistent-process-1"))
         def probe = new TestKit(system)
 
-        def contextTask1 = new Process.TaskExecutionContext(
+        def contextTask1 = new TaskExecutionContext(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -211,7 +215,7 @@ class ProcessTest extends GroovyTestCase {
                 []
         )
 
-        def contextTask2 = new Process.TaskExecutionContext(
+        def contextTask2 = new TaskExecutionContext(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-2", "text2"),
                 [],
@@ -219,23 +223,23 @@ class ProcessTest extends GroovyTestCase {
                 []
         )
 
-        process.tell(new Process.AddLastTaskCmd(contextTask1), probe.getRef())
-        probe.expectMsgClass(Process.TaskSuccessAdded.class)
+        process.tell(new AddLastTaskCmd(contextTask1), probe.getRef())
+        probe.expectMsgClass(TaskSuccessAdded.class)
 
-        process.tell(new Process.AddLastTaskCmd(contextTask2), probe.getRef())
-        probe.expectMsgClass(Process.TaskSuccessAdded.class)
+        process.tell(new AddLastTaskCmd(contextTask2), probe.getRef())
+        probe.expectMsgClass(TaskSuccessAdded.class)
 
 
-        process.tell(new Process.SetReadyCmd(), probe.getRef())
-        probe.expectMsgClass(Process.SuccessGoToReady.class)
+        process.tell(new SetReadyCmd(), probe.getRef())
+        probe.expectMsgClass(SuccessGoToReady.class)
 
         println " ---- CHECK STATE ----- "
 
-        process.tell(new Process.GetStateCmd(), probe.getRef())
-        probe.expectMsg(Process.State.READY)
+        process.tell(new GetStateCmd(), probe.getRef())
+        probe.expectMsg(State.READY)
 
-        process.tell(new Process.GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(Process.StateData.class)
+        process.tell(new GetStateDataCmd(), probe.getRef())
+        def stateData = probe.expectMsgClass(StateData.class)
 
         assertTrue(stateData.taskContextSet.contains(contextTask1))
         assertTrue(stateData.taskContextSet.contains(contextTask2))
@@ -245,8 +249,8 @@ class ProcessTest extends GroovyTestCase {
                 stateData.taskContextSet.size()
         )
 
-        process.tell(new Process.GetChildsCmd(), probe.getRef())
-        def childList = probe.expectMsgClass(Process.ChildTaskList.class)
+        process.tell(new GetChildsCmd(), probe.getRef())
+        def childList = probe.expectMsgClass(ChildTaskList.class)
 
         for (child in childList.tasks){
             child.tell(new PersistFSMTask.GetStateCmd(), probe.getRef())
@@ -254,12 +258,16 @@ class ProcessTest extends GroovyTestCase {
         }
     }
 
+    void testExceptionOnGoToReadyState(){
+        throw new NotImplementedException()
+    }
+
     void testExceptionOnTaskAdding(){
-        def process = system.actorOf(Process.props("persistent-process-1"), "process-1")
+        def process = system.actorOf(props("persistent-process-1"), "process-1")
         def probe = new TestKit(system)
 
         def identifier = UUID.randomUUID()
-        def contextTask1 = new Process.TaskExecutionContext(
+        def contextTask1 = new TaskExecutionContext(
                 identifier,
                 Props.empty(),
                 [],
@@ -267,17 +275,17 @@ class ProcessTest extends GroovyTestCase {
                 []
         )
 
-        process.tell(new Process.AddLastTaskCmd(contextTask1), probe.getRef())
-        probe.expectMsgClass(Process.TaskAddingError.class)
+        process.tell(new AddLastTaskCmd(contextTask1), probe.getRef())
+        probe.expectMsgClass(TaskAddingError.class)
 
     }
 
     void testRecover(){
-        def process = system.actorOf(Process.props("persistent-process-1"), "process-1")
+        def process = system.actorOf(props("persistent-process-1"), "process-1")
         def probe = new TestKit(system)
 
         def identifier = UUID.randomUUID()
-        def contextTask1 = new Process.TaskExecutionContext(
+        def contextTask1 = new TaskExecutionContext(
                 identifier,
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -285,27 +293,27 @@ class ProcessTest extends GroovyTestCase {
                 []
         )
 
-        process.tell(new Process.AddLastTaskCmd(contextTask1), probe.getRef())
-        probe.expectMsgClass(Process.TaskSuccessAdded.class)
+        process.tell(new AddLastTaskCmd(contextTask1), probe.getRef())
+        probe.expectMsgClass(TaskSuccessAdded.class)
 
-        process.tell(new Process.SetReadyCmd(), probe.getRef())
-        probe.expectMsgClass(Process.SuccessGoToReady.class)
+        process.tell(new SetReadyCmd(), probe.getRef())
+        probe.expectMsgClass(SuccessGoToReady.class)
 
         println "========  CHECK STATE =========="
 
-        process.tell(new Process.GetStateCmd(), probe.getRef())
-        probe.expectMsg(Process.State.READY)
+        process.tell(new GetStateCmd(), probe.getRef())
+        probe.expectMsg(State.READY)
 
-        process.tell(new Process.GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(Process.StateData.class)
+        process.tell(new GetStateDataCmd(), probe.getRef())
+        def stateData = probe.expectMsgClass(StateData.class)
 
         assertEquals(
                 contextTask1,
                 stateData.taskContextSet[0]
         )
 
-        process.tell(new Process.GetChildsCmd(), probe.getRef())
-        def childList = probe.expectMsgClass(Process.ChildTaskList.class)
+        process.tell(new GetChildsCmd(), probe.getRef())
+        def childList = probe.expectMsgClass(ChildTaskList.class)
 
         for (child in childList.tasks){
             child.tell(new PersistFSMTask.GetStateCmd(), probe.getRef())
@@ -320,7 +328,7 @@ class ProcessTest extends GroovyTestCase {
 
         println "========  RECOVER =========="
 
-        process = system.actorOf(Process.props("persistent-process-1"), "process-2")
+        process = system.actorOf(props("persistent-process-1"), "process-2")
 
         for (child in childList.tasks){
             child.tell(new PersistFSMTask.GetStateCmd(), probe.getRef())
@@ -329,19 +337,19 @@ class ProcessTest extends GroovyTestCase {
 
         println "========  CHECK STATE =========="
 
-        process.tell(new Process.GetStateCmd(), probe.getRef())
-        probe.expectMsg(Process.State.READY)
+        process.tell(new GetStateCmd(), probe.getRef())
+        probe.expectMsg(State.READY)
 
-        process.tell(new Process.GetStateDataCmd(), probe.getRef())
-        stateData = probe.expectMsgClass(Process.StateData.class)
+        process.tell(new GetStateDataCmd(), probe.getRef())
+        stateData = probe.expectMsgClass(StateData.class)
 
         assertEquals(
                 1,
                 stateData.taskContextSet.size()
         )
 
-        process.tell(new Process.GetChildsCmd(), probe.getRef())
-        childList = probe.expectMsgClass(Process.ChildTaskList.class)
+        process.tell(new GetChildsCmd(), probe.getRef())
+        childList = probe.expectMsgClass(ChildTaskList.class)
 
         for (child in childList.tasks){
             child.tell(new PersistFSMTask.GetStateCmd(), probe.getRef())
@@ -350,11 +358,11 @@ class ProcessTest extends GroovyTestCase {
     }
 
     void testRecoverException(){
-        def process = system.actorOf(Process.props("persistent-process-1"), "process-1")
+        def process = system.actorOf(props("persistent-process-1"), "process-1")
         def probe = new TestKit(system)
 
         def identifier = UUID.randomUUID()
-        def contextTask1 = new Process.TaskExecutionContext(
+        def contextTask1 = new TaskExecutionContext(
                 identifier,
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -362,27 +370,27 @@ class ProcessTest extends GroovyTestCase {
                 []
         )
 
-        process.tell(new Process.AddLastTaskCmd(contextTask1), probe.getRef())
-        probe.expectMsgClass(Process.TaskSuccessAdded.class)
+        process.tell(new AddLastTaskCmd(contextTask1), probe.getRef())
+        probe.expectMsgClass(TaskSuccessAdded.class)
 
-        process.tell(new Process.SetReadyCmd(), probe.getRef())
-        probe.expectMsgClass(Process.SuccessGoToReady.class)
+        process.tell(new SetReadyCmd(), probe.getRef())
+        probe.expectMsgClass(SuccessGoToReady.class)
 
         println "========  CHECK STATE =========="
 
-        process.tell(new Process.GetStateCmd(), probe.getRef())
-        probe.expectMsg(Process.State.READY)
+        process.tell(new GetStateCmd(), probe.getRef())
+        probe.expectMsg(State.READY)
 
-        process.tell(new Process.GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(Process.StateData.class)
+        process.tell(new GetStateDataCmd(), probe.getRef())
+        def stateData = probe.expectMsgClass(StateData.class)
 
         assertEquals(
                 contextTask1,
                 stateData.taskContextSet[0]
         )
 
-        process.tell(new Process.GetChildsCmd(), probe.getRef())
-        def childList = probe.expectMsgClass(Process.ChildTaskList.class)
+        process.tell(new GetChildsCmd(), probe.getRef())
+        def childList = probe.expectMsgClass(ChildTaskList.class)
 
         for (child in childList.tasks){
             child.tell(new PersistFSMTask.GetStateCmd(), probe.getRef())
@@ -413,8 +421,57 @@ class ProcessTest extends GroovyTestCase {
 
         println "========  CHECK STATE =========="
 
-        process.tell(new Process.GetStateCmd(), probe.getRef())
-        probe.expectMsg(Process.State.RECOVERING_ERROR)
+        process.tell(new GetStateCmd(), probe.getRef())
+        probe.expectMsg(State.RECOVERING_ERROR)
+
+    }
+
+    void testChildKillStragedy(){
+        throw new NotImplementedException()
+    }
+
+    void testSettingProcessContext(){
+
+        def process = system.actorOf(props("persistent-process-1"), "process-1")
+        def probe = new TestKit(system)
+
+        process.tell(new GetContextCmd(), probe.getRef())
+        def context = probe.expectMsgClass(ProcessContextMessage)
+
+        assertEquals(
+                0,
+                context.processContext.size()
+        )
+
+        process.tell(new SetContextCmd(["test":"some"]), probe.getRef())
+        probe.expectMsgClass(SuccessSetContext)
+
+        process.tell(new GetContextCmd(), probe.getRef())
+
+        assertEquals(
+                ["test":"some"],
+                probe.expectMsgClass(ProcessContextMessage).processContext
+        )
+
+        process.tell(new AppendToContextCmd(["test":"some1", "test2":"some2"]), probe.getRef())
+        probe.expectMsgClass(SuccessSetContext)
+
+        process.tell(new GetContextCmd(), probe.getRef())
+
+        assertEquals(
+                ["test":"some1", "test2":"some2"],
+                probe.expectMsgClass(ProcessContextMessage).processContext
+        )
+
+        process.tell(new AppendToContextCmd(["test3":"some3"]), probe.getRef())
+        probe.expectMsgClass(SuccessSetContext)
+
+        process.tell(new GetContextCmd(), probe.getRef())
+
+        assertEquals(
+                ["test":"some1", "test2":"some2", "test3":"some3"],
+                probe.expectMsgClass(ProcessContextMessage).processContext
+        )
 
     }
 

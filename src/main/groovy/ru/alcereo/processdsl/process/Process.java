@@ -6,6 +6,7 @@ import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import akka.persistence.fsm.AbstractPersistentFSM;
 import akka.persistence.fsm.PersistentFSM;
+import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
 import lombok.val;
@@ -61,27 +62,36 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
         startWith(State.NEW, new StateData());
 
         when(State.NEW,
-                matchEvent(AddLastTaskCmd.class,    this::handleAddLastTask)
-                    .event(GetStateDataCmd.class,   this::handleGetStateData)
-                    .event(GetStateCmd.class,       this::handleGetState)
+                matchEvent(AddLastTaskCmd.class,        this::handleAddLastTask)        //  ADD TASK
+                    .event(AppendToContextCmd.class,    this::handleAppendToContext)    // -CONTEXT
+                    .event(SetContextCmd.class,         this::handleSetContext)         // -CONTEXT
+                    .event(GetContextCmd.class,         this::handleGetContext)         // -CONTEXT
+                    .event(GetStateDataCmd.class,       this::handleGetStateData)       // =STATE
+                    .event(GetStateCmd.class,           this::handleGetState)           // =STATE
         );
 
         when(State.PREPARING,
-                matchEvent(AddLastTaskCmd.class,    this::handleAddLastTask)
-                    .event(SetReadyCmd.class,       this::handleSetToReady)
-                    .event(GetStateDataCmd.class,   this::handleGetStateData)
-                    .event(GetStateCmd.class,       this::handleGetState)
+                matchEvent(AddLastTaskCmd.class,        this::handleAddLastTask)
+                    .event(AppendToContextCmd.class,    this::handleAppendToContext)
+                    .event(SetContextCmd.class,         this::handleSetContext)
+                    .event(GetContextCmd.class,         this::handleGetContext)
+                    .event(SetReadyCmd.class,           this::handleSetToReady)
+                    .event(GetStateDataCmd.class,       this::handleGetStateData)
+                    .event(GetStateCmd.class,           this::handleGetState)
                 );
 
         when(State.READY,
-                matchEvent(GetStateDataCmd.class,   this::handleGetStateData)
-                    .event(GetStateCmd.class,       this::handleGetState)
-                    .event(GetChildsCmd.class,      this::handleGetChilds)
+                matchEvent(GetStateDataCmd.class,       this::handleGetStateData)
+                    .event(GetStateCmd.class,           this::handleGetState)
+                    .event(GetChildsCmd.class,          this::handleGetChilds)
+                    .event(AppendToContextCmd.class,    this::handleAppendToContext)
+                    .event(SetContextCmd.class,         this::handleSetContext)
+                    .event(GetContextCmd.class,         this::handleGetContext)
                     .event(RecoverErrorOccurred.class, (recoverErrorOccurred, stateData) -> goTo(State.RECOVERING_ERROR))
         );
 
         when(State.RECOVERING_ERROR,
-                matchEvent(GetStateDataCmd.class,   this::handleGetStateData)
+                matchEvent(GetStateDataCmd.class,       this::handleGetStateData)
                         .event(GetStateCmd.class,       this::handleGetState)
         );
 
@@ -106,6 +116,8 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
                     getSelf().forward(new RecoverErrorOccurred(e), getContext());
                 }
             }
+        } else if (domainEvent instanceof SetContextEvt){
+            currentData.processContext = ((SetContextEvt) domainEvent).context;
         }else {
             throw new RuntimeException("Unhandled event");
         }
@@ -124,6 +136,9 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
         }
     }
 
+    /**========================================*
+     *                 HANDLERS                *
+     *=========================================*/
 
     private PersistentFSM.State handleGetStateData(GetStateDataCmd getStateDataCmd, StateData stateData){
         return stay().replying(stateData);
@@ -170,6 +185,27 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
                 .replying(replyValue);
     }
 
+    private PersistentFSM.State handleAppendToContext(AppendToContextCmd command, StateData stateData){
+
+        val context = stateData.processContext;
+        context.putAll(command.properties);
+
+        return stay()
+                .applying(new SetContextEvt(context))
+                .replying(new SuccessSetContext());
+    }
+
+    private PersistentFSM.State handleSetContext(SetContextCmd command, StateData stateData){
+        return stay()
+                .applying(new SetContextEvt(command.properties))
+                .replying(new SuccessSetContext());
+    }
+
+
+    private PersistentFSM.State handleGetContext(GetContextCmd command, StateData stateData){
+        return stay()
+                .replying(new ProcessContextMessage(stateData.processContext));
+    }
 
     /**========================================*
      *                 STATE                   *
@@ -193,8 +229,10 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
         }
     }
 
+    @Data
     public static class StateData {
         public HashSet<TaskExecutionContext> taskContextSet = new HashSet<>();
+        public Map<String, Object> processContext = new HashMap<>();
     }
 
     /**========================================*
@@ -210,6 +248,11 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
 
     @Value
     private static class SetToReadyEvt implements Events{}
+
+    @Value
+    private static class SetContextEvt implements Events {
+        Map<String, Object> context;
+    }
 
     /**========================================*
      *                 COMMANDS                *
@@ -240,6 +283,19 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
     public static final class RecoverErrorOccurred implements Command {
         Exception e;
     }
+
+    @Value
+    public static final class AppendToContextCmd {
+        Map<String, Object> properties;
+    }
+
+    @Value
+    public static final class SetContextCmd {
+        Map<String, Object> properties;
+    }
+
+    @Value
+    public static final class GetContextCmd {}
 
     /**========================================*
      *                 OTHER                   *
@@ -276,4 +332,11 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
         List<ActorRef> tasks;
     }
 
+    @Value
+    public static final class SuccessSetContext {}
+
+    @Value
+    public static final class ProcessContextMessage {
+        Map<String, Object> processContext;
+    }
 }
