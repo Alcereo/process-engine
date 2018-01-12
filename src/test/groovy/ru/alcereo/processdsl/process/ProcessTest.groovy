@@ -76,7 +76,7 @@ class ProcessTest extends GroovyTestCase {
 
         assertEquals(
                 0,
-                stateData.taskContextSet.size()
+                stateData.taskContextList.size()
         )
 
         Class<PrintTaskActor> classVar = PrintTaskActor.class
@@ -106,7 +106,7 @@ class ProcessTest extends GroovyTestCase {
 
         assertEquals(
                 contextTask1,
-                stateData.taskContextSet[0]
+                stateData.taskContextList[0]
         )
 
     }
@@ -198,12 +198,12 @@ class ProcessTest extends GroovyTestCase {
 
         assertEquals(
                 contextTask1.taskProp,
-                stateData.taskContextSet[0].taskProp
+                stateData.taskContextList[0].taskProp
         )
 
         assertEquals(
                 1,
-                stateData.taskContextSet.size()
+                stateData.taskContextList.size()
         )
     }
 
@@ -320,7 +320,7 @@ class ProcessTest extends GroovyTestCase {
 
         assertEquals(
                 contextTask1,
-                stateData.taskContextSet[0]
+                stateData.taskContextList[0]
         )
 
         process.tell(new GetChildsCmd(), probe.getRef())
@@ -356,7 +356,7 @@ class ProcessTest extends GroovyTestCase {
 
         assertEquals(
                 1,
-                stateData.taskContextSet.size()
+                stateData.taskContextList.size()
         )
 
         process.tell(new GetChildsCmd(), probe.getRef())
@@ -397,7 +397,7 @@ class ProcessTest extends GroovyTestCase {
 
         assertEquals(
                 contextTask1,
-                stateData.taskContextSet[0]
+                stateData.taskContextList[0]
         )
 
         process.tell(new GetChildsCmd(), probe.getRef())
@@ -534,7 +534,6 @@ class ProcessTest extends GroovyTestCase {
         assertTrue(statesSet.size()==1)
 
     }
-
 
     void testProcessStart(){
 

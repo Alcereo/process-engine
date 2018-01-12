@@ -178,7 +178,7 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
 
     @Data
     public static class StateData {
-        private ArrayList<TaskExecutionContext> taskContextSet = new ArrayList<>();
+        private ArrayList<TaskExecutionContext> taskContextList = new ArrayList<>();
         private final Map<UUID, PersistFSMTask.TaskState> tasksStatuses = new HashMap<>();
         private final Map<ActorRef, TaskExecutionContext> childTaskActorsCache = new HashMap<>();
         private Map<String, Object> processContext = new HashMap<>();
@@ -186,7 +186,7 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
 //        util func
 
         void addLastTask(TaskExecutionContext taskContext){
-            taskContextSet.add(taskContext);
+            taskContextList.add(taskContext);
         }
 
         public Option<UUID> getIdentifierByActorRef(ActorRef ref){
@@ -207,11 +207,11 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
         }
 
         public List<TaskExecutionContext> getTasksContexts() {
-            return taskContextSet;
+            return taskContextList;
         }
 
         public boolean containsIdentifier(UUID identifier) {
-            return taskContextSet.stream().anyMatch(context -> context.identifier.equals(identifier));
+            return taskContextList.stream().anyMatch(context -> context.identifier.equals(identifier));
         }
 
         public Option<PersistFSMTask.TaskState> taskState(UUID identifier){
@@ -219,7 +219,7 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
         }
 
         public List<ActorRef> getTaskRefs() {
-            return taskContextSet.stream()
+            return taskContextList.stream()
                     .map(TaskExecutionContext::getIdentifier)
                     .map(this::getActorRefByIdentifier)
                     .map(actorRefOption -> actorRefOption.fold(() -> null, v1 -> v1))
