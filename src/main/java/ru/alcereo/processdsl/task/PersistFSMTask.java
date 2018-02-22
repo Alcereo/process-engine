@@ -5,6 +5,8 @@ import akka.persistence.fsm.AbstractPersistentFSM;
 import akka.persistence.fsm.PersistentFSM;
 import lombok.Data;
 import lombok.Value;
+import scala.reflect.ClassTag;
+import scala.reflect.ClassTag$;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -85,7 +87,7 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
                     })
         );
 
-        when(TaskState.FINISHED,
+        when(FINISHED,
                 matchEvent(GetStateDataCmd.class, getStateDataApply)
                         .event(GetTaskStateCmd.class, getStateApply)
         );

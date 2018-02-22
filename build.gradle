@@ -4,7 +4,7 @@ version '1.0-SNAPSHOT'
 apply plugin: 'groovy'
 apply plugin: 'java'
 
-sourceCompatibility = 1.5
+sourceCompatibility = 1.8
 
 repositories {
     mavenCentral()
@@ -36,6 +36,10 @@ dependencies {
     testCompile 'org.mockito:mockito-all:1.9.5'
 
     testCompile "com.typesafe.akka:akka-testkit_2.12:$AkkaVersion"
+
+    compile 'io.cucumber:cucumber-java8:2.3.1'
+    testCompile 'io.cucumber:cucumber-junit:2.3.1'
+    compile 'io.cucumber:cucumber-groovy:2.0.1'
 
 //    Utils
 
