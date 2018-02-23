@@ -4,12 +4,11 @@ package ru.alcereo.processdsl.task;
 import akka.japi.pf.FI;
 import akka.persistence.fsm.AbstractPersistentFSM;
 import akka.persistence.fsm.PersistentFSM;
-import lombok.Data;
 import lombok.Value;
+import ru.alcereo.processdsl.domain.Task;
 import scala.reflect.ClassTag;
 
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.Map;
 
 import static ru.alcereo.processdsl.task.PersistFSMTask.TaskState.FINISHED;
@@ -17,7 +16,7 @@ import static ru.alcereo.processdsl.task.PersistFSMTask.TaskState.FINISHED;
 /**
  * Created by alcereo on 03.01.18.
  */
-public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTask.TaskState, PersistFSMTask.TaskStateData, PersistFSMTask.TaskEvents> {
+public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTask.TaskState, Task, PersistFSMTask.TaskEvents> {
 
     private final String persistentId;
 
@@ -53,10 +52,9 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
 
 
     @Override
-    public TaskStateData applyEvent(TaskEvents domainEvent, TaskStateData currentData) {
+    public Task applyEvent(TaskEvents domainEvent, Task currentData) {
         if (domainEvent instanceof PreparedEvt){
-            currentData.properties = ((PreparedEvt) domainEvent).properties;
-            return currentData;
+            return currentData.setProperties(((PreparedEvt) domainEvent).properties);
         }else if (domainEvent instanceof SuccessExecutedEvt){
             return currentData;
         }
@@ -67,12 +65,12 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
         this.persistentId = persistentId;
 
 
-        startWith(TaskState.NEW, new TaskStateData());
+        startWith(TaskState.NEW, Task.buildEmpty());
 
-        FI.Apply2<GetStateDataCmd, TaskStateData, State<TaskState, TaskStateData, TaskEvents>> getStateDataApply =
+        FI.Apply2<GetStateDataCmd, Task, State<TaskState, Task, TaskEvents>> getStateDataApply =
                 (getStateDataCmd, taskStateData) -> stay().replying(taskStateData);
 
-        FI.Apply2<GetTaskStateCmd, TaskStateData, State<TaskState, TaskStateData, TaskEvents>> getStateApply =
+        FI.Apply2<GetTaskStateCmd, Task, State<TaskState, Task, TaskEvents>> getStateApply =
                 (getStateDataCmd, taskStateData) -> stay().replying(stateName());
 
         when(TaskState.NEW,
@@ -115,9 +113,9 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
 
     }
 
-    public abstract void handleExecution(TaskStateData taskStateData);
+    public abstract void handleExecution(Task taskStateData);
 
-    public abstract void handlePrepare(TaskStateData taskStateData);
+    public abstract void handlePrepare(Task taskStateData);
 
 //    State
 
@@ -140,12 +138,7 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
         }
     }
 
-    @Data
-    public static class TaskStateData {
-        Map<String, Object> properties = new HashMap<>();
-    }
-
-//    Commands
+    //    Commands
 
     public interface Command {
     }

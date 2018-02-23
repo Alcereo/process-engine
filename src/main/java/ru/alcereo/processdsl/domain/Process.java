@@ -10,14 +10,14 @@ import java.util.stream.Collectors;
 
 @Data
 public class Process {
-    private ArrayList<TaskExecutionContext> taskContextList = new ArrayList<>();
+    private ArrayList<Task> taskContextList = new ArrayList<>();
     private final Map<UUID, PersistFSMTask.TaskState> tasksStatuses = new HashMap<>();
-    private final Map<ActorRef, TaskExecutionContext> childTaskActorsCache = new HashMap<>();
+    private final Map<ActorRef, Task> childTaskActorsCache = new HashMap<>();
     private Map<String, Object> processContext = new HashMap<>();
 
 //        util func
 
-    public void addLastTask(TaskExecutionContext taskContext){
+    public void addLastTask(Task taskContext){
         taskContextList.add(taskContext);
     }
 
@@ -38,7 +38,7 @@ public class Process {
         tasksStatuses.put(identifier, taskState);
     }
 
-    public List<TaskExecutionContext> getTasksContexts() {
+    public List<Task> getTasksContexts() {
         return taskContextList;
     }
 
@@ -52,7 +52,7 @@ public class Process {
 
     public List<ActorRef> getTaskRefs() {
         return taskContextList.stream()
-                .map(TaskExecutionContext::getIdentifier)
+                .map(Task::getIdentifier)
                 .map(this::getActorRefByIdentifier)
                 .map(actorRefOption -> actorRefOption.fold(() -> null, v1 -> v1))
                 .collect(Collectors.toList());

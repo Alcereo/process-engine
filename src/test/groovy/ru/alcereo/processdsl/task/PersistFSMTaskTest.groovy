@@ -8,11 +8,11 @@ import akka.testkit.javadsl.TestKit
 import com.typesafe.config.ConfigFactory
 import org.junit.After
 import org.junit.Before
+import ru.alcereo.processdsl.domain.Task
 
 import java.nio.file.Paths
 
 import static ru.alcereo.processdsl.task.PersistFSMTask.*
-
 /**
  * Created by alcereo on 03.01.18.
  */
@@ -48,12 +48,12 @@ class PersistFSMTaskTest extends GroovyTestCase {
         }
 
         @Override
-        void handleExecution(TaskStateData taskStateData) {
+        void handleExecution(Task taskStateData) {
             println " -- EXECUTED: ${taskStateData.properties.get('text')} -- "
         }
 
         @Override
-        void handlePrepare(TaskStateData taskStateData) {
+        void handlePrepare(Task taskStateData) {
             println " -- PREPARED: ${taskStateData.properties.get('text')} -- "
         }
     }
@@ -68,7 +68,7 @@ class PersistFSMTaskTest extends GroovyTestCase {
         def state
 
         taskActor.tell(new GetStateDataCmd(), probe.getRef())
-        state = probe.expectMsgClass(TaskStateData.class)
+        state = probe.expectMsgClass(Task.class)
 
         assertEquals(
                 [:],
@@ -98,7 +98,7 @@ class PersistFSMTaskTest extends GroovyTestCase {
 
         def checkState = { Map msg, TaskState stateEnum ->
             taskActor.tell(new GetStateDataCmd(), probe.getRef())
-            state = probe.expectMsgClass(TaskStateData.class)
+            state = probe.expectMsgClass(Task.class)
 
             assertEquals(
                     msg,
@@ -165,7 +165,7 @@ class PersistFSMTaskTest extends GroovyTestCase {
 
         def checkState = { Map msg, TaskState stateEnum ->
             taskActor.tell(new GetStateDataCmd(), probe.getRef())
-            state = probe.expectMsgClass(TaskStateData.class)
+            state = probe.expectMsgClass(Task.class)
 
             assertEquals(
                     msg,

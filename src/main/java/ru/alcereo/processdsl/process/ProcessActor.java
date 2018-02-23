@@ -9,7 +9,7 @@ import akka.persistence.fsm.PersistentFSM;
 import lombok.Value;
 import lombok.val;
 import ru.alcereo.processdsl.domain.Process;
-import ru.alcereo.processdsl.domain.TaskExecutionContext;
+import ru.alcereo.processdsl.domain.Task;
 import ru.alcereo.processdsl.task.PersistFSMTask;
 import scala.reflect.ClassTag;
 
@@ -139,7 +139,7 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
         log.debug("Applying event. Recovery: {}. EventData: {}",recoveryRunning() ,domainEvent);
 
         if (domainEvent instanceof AddLastTaskEvt) {
-            process.addLastTask(((AddLastTaskEvt) domainEvent).context);
+            process.addLastTask(((AddLastTaskEvt) domainEvent).task);
         } else if (domainEvent instanceof SetToReadyEvt){
 
             if (recoveryRunning()) {
@@ -181,7 +181,7 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
     public enum State implements PersistentFSM.FSMState {
         NEW("New empty process"),
         RECOVERING_ERROR("Error occurred when recover"),
-        PREPARING("ProcessActor in preparing task context task"),
+        PREPARING("ProcessActor in preparing task task task"),
         READY("Ready to start"),
         START("ProcessActor is executing tasks");
 
@@ -308,7 +308,7 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
 
     private PersistentFSM.State handleStartProcess(StartProcessCmd command, Process process){
 
-        TaskExecutionContext firstTaskContext = process.getTasksContexts().get(0);
+        Task firstTaskContext = process.getTasksContexts().get(0);
 
         val taskStateOpt = process.taskState(firstTaskContext.getIdentifier());
 
@@ -347,7 +347,7 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
 
     @Value
     private static class AddLastTaskEvt implements Events{
-        TaskExecutionContext context;
+        Task task;
     }
 
     @Value
@@ -372,7 +372,7 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
 
     @Value
     public static final class AddLastTaskCmd implements Serializable{
-        TaskExecutionContext context;
+        Task context;
     }
 
     @Value

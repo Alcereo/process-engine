@@ -7,7 +7,7 @@ import groovy.transform.NotYetImplemented
 import org.junit.After
 import org.junit.Before
 import ru.alcereo.processdsl.domain.Process
-import ru.alcereo.processdsl.domain.TaskExecutionContext
+import ru.alcereo.processdsl.domain.Task
 import ru.alcereo.processdsl.task.PersistFSMTask
 import scala.Tuple2
 
@@ -52,12 +52,12 @@ class ProcessActorTest extends GroovyTestCase {
         }
 
         @Override
-        void handleExecution(PersistFSMTask.TaskStateData taskStateData) {
+        void handleExecution(Task taskStateData) {
             println "-- EXECUTED: ${taskStateData.properties.get(fieldToPrint)} --"
         }
 
         @Override
-        void handlePrepare(PersistFSMTask.TaskStateData taskStateData) {
+        void handlePrepare(Task taskStateData) {
             println "-- PREPARED: ${taskStateData.properties.get(fieldToPrint)} --"
             println "Context: ${taskStateData.properties}"
         }
@@ -88,7 +88,7 @@ class ProcessActorTest extends GroovyTestCase {
         def process = system.actorOf(props("persistent-process-1"))
         def probe = new TestKit(system)
 
-        def contextTask1 = new TaskExecutionContext(
+        def contextTask1 = new Task(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -117,7 +117,7 @@ class ProcessActorTest extends GroovyTestCase {
         def probe = new TestKit(system)
 
         def contextSet
-        def contextTask1 = new TaskExecutionContext(
+        def contextTask1 = new Task(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -125,7 +125,7 @@ class ProcessActorTest extends GroovyTestCase {
                 []
         )
 
-        def contextTask2 = new TaskExecutionContext(
+        def contextTask2 = new Task(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-2", "text2"),
                 [],
@@ -168,7 +168,7 @@ class ProcessActorTest extends GroovyTestCase {
 
         def identifier = UUID.randomUUID()
 
-        def contextTask1 = new TaskExecutionContext(
+        def contextTask1 = new Task(
                 identifier,
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -176,7 +176,7 @@ class ProcessActorTest extends GroovyTestCase {
                 []
         )
 
-        def contextTask2 = new TaskExecutionContext(
+        def contextTask2 = new Task(
                 identifier,
                 PrintTaskActor.props("test-actor-2", "text2"),
                 [],
@@ -212,7 +212,7 @@ class ProcessActorTest extends GroovyTestCase {
         def process = system.actorOf(props("persistent-process-1"))
         def probe = new TestKit(system)
 
-        def contextTask1 = new TaskExecutionContext(
+        def contextTask1 = new Task(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -220,7 +220,7 @@ class ProcessActorTest extends GroovyTestCase {
                 []
         )
 
-        def contextTask2 = new TaskExecutionContext(
+        def contextTask2 = new Task(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-2", "text2"),
                 [],
@@ -278,7 +278,7 @@ class ProcessActorTest extends GroovyTestCase {
         def probe = new TestKit(system)
 
         def identifier = UUID.randomUUID()
-        def contextTask1 = new TaskExecutionContext(
+        def contextTask1 = new Task(
                 identifier,
                 Props.empty(),
                 [],
@@ -296,7 +296,7 @@ class ProcessActorTest extends GroovyTestCase {
         def probe = new TestKit(system)
 
         def identifier = UUID.randomUUID()
-        def contextTask1 = new TaskExecutionContext(
+        def contextTask1 = new Task(
                 identifier,
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -373,7 +373,7 @@ class ProcessActorTest extends GroovyTestCase {
         def probe = new TestKit(system)
 
         def identifier = UUID.randomUUID()
-        def contextTask1 = new TaskExecutionContext(
+        def contextTask1 = new Task(
                 identifier,
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -491,7 +491,7 @@ class ProcessActorTest extends GroovyTestCase {
         def probe = new TestKit(system)
 
         def identifier1 = UUID.randomUUID()
-        def contextTask1 = new TaskExecutionContext(
+        def contextTask1 = new Task(
                 identifier1,
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -500,7 +500,7 @@ class ProcessActorTest extends GroovyTestCase {
         )
 
         def identifier2 = UUID.randomUUID()
-        def contextTask2 = new TaskExecutionContext(
+        def contextTask2 = new Task(
                 identifier2,
                 PrintTaskActor.props("test-actor-1", "text"),
                 [],
@@ -547,7 +547,7 @@ class ProcessActorTest extends GroovyTestCase {
         def contextProperty2 = "some-text2"
         def someText2 = "Some text to print 2"
 
-        def contextTask1 = new TaskExecutionContext(
+        def contextTask1 = new Task(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-1", fieldToPrint1),
                 [Tuple2.apply(contextProperty1, fieldToPrint1)],
@@ -555,7 +555,7 @@ class ProcessActorTest extends GroovyTestCase {
                 []
         )
 
-        def contextTask2 = new TaskExecutionContext(
+        def contextTask2 = new Task(
                 UUID.randomUUID(),
                 PrintTaskActor.props("test-actor-1", fieldToPrint2),
                 [Tuple2.apply(contextProperty2, fieldToPrint2)],
