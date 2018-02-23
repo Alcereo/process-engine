@@ -3,20 +3,21 @@ package ru.alcereo.processdsl.process
 import akka.actor.*
 import akka.testkit.javadsl.TestKit
 import com.typesafe.config.ConfigFactory
+import groovy.transform.NotYetImplemented
 import org.junit.After
 import org.junit.Before
+import ru.alcereo.processdsl.domain.Process
+import ru.alcereo.processdsl.domain.TaskExecutionContext
 import ru.alcereo.processdsl.task.PersistFSMTask
 import scala.Tuple2
-import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 import java.nio.file.Paths
 
-import static ru.alcereo.processdsl.process.Process.*
-
+import static ru.alcereo.processdsl.process.ProcessActor.*
 /**
  * Created by alcereo on 05.01.18.
  */
-class ProcessTest extends GroovyTestCase {
+class ProcessActorTest extends GroovyTestCase {
 
     ActorSystem system
 
@@ -72,7 +73,7 @@ class ProcessTest extends GroovyTestCase {
         probe.expectMsg(State.NEW)
 
         process.tell(new GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(StateData.class)
+        def stateData = probe.expectMsgClass(Process.class)
 
         assertEquals(
                 0,
@@ -102,7 +103,7 @@ class ProcessTest extends GroovyTestCase {
         probe.expectMsg(State.PREPARING)
 
         process.tell(new GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(StateData.class)
+        def stateData = probe.expectMsgClass(Process.class)
 
         assertEquals(
                 contextTask1,
@@ -143,7 +144,7 @@ class ProcessTest extends GroovyTestCase {
         probe.expectMsg(State.PREPARING)
 
         process.tell(new GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(StateData.class)
+        def stateData = probe.expectMsgClass(Process.class)
 
         assertEquals(
                 contextTask1,
@@ -194,7 +195,7 @@ class ProcessTest extends GroovyTestCase {
         probe.expectMsg(State.PREPARING)
 
         process.tell(new GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(StateData.class)
+        def stateData = probe.expectMsgClass(Process.class)
 
         assertEquals(
                 contextTask1.taskProp,
@@ -243,7 +244,7 @@ class ProcessTest extends GroovyTestCase {
         probe.expectMsg(State.READY)
 
         process.tell(new GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(StateData.class)
+        def stateData = probe.expectMsgClass(Process.class)
 
         assertEquals(
                 contextTask1,
@@ -269,9 +270,8 @@ class ProcessTest extends GroovyTestCase {
         }
     }
 
-    void testExceptionOnGoToReadyState(){
-        throw new NotImplementedException()
-    }
+    @NotYetImplemented
+    void testExceptionOnGoToReadyState(){}
 
     void testExceptionOnTaskAdding(){
         def process = system.actorOf(props("persistent-process-1"), "process-1")
@@ -316,7 +316,7 @@ class ProcessTest extends GroovyTestCase {
         probe.expectMsg(State.READY)
 
         process.tell(new GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(StateData.class)
+        def stateData = probe.expectMsgClass(Process.class)
 
         assertEquals(
                 contextTask1,
@@ -352,7 +352,7 @@ class ProcessTest extends GroovyTestCase {
         probe.expectMsg(State.READY)
 
         process.tell(new GetStateDataCmd(), probe.getRef())
-        stateData = probe.expectMsgClass(StateData.class)
+        stateData = probe.expectMsgClass(Process.class)
 
         assertEquals(
                 1,
@@ -393,7 +393,7 @@ class ProcessTest extends GroovyTestCase {
         probe.expectMsg(State.READY)
 
         process.tell(new GetStateDataCmd(), probe.getRef())
-        def stateData = probe.expectMsgClass(StateData.class)
+        def stateData = probe.expectMsgClass(Process.class)
 
         assertEquals(
                 contextTask1,
@@ -417,8 +417,8 @@ class ProcessTest extends GroovyTestCase {
         println "========  RECOVER =========="
 
         process = system.actorOf(
-                Props.create(Process.class, { ->
-                    new Process(
+                Props.create(ProcessActor.class, { ->
+                    new ProcessActor(
                             "persistent-process-1",
                             true,
                             identifier.toString()
@@ -437,9 +437,8 @@ class ProcessTest extends GroovyTestCase {
 
     }
 
-    void testChildKillStrategy(){
-        throw new NotImplementedException()
-    }
+    @NotYetImplemented
+    void testChildKillStrategy(){}
 
     void testSettingProcessContext(){
 
