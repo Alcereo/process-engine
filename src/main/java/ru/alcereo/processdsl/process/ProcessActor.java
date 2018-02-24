@@ -24,7 +24,7 @@ import static ru.alcereo.processdsl.task.PersistFSMTask.*;
 /**
  * Created by alcereo on 01.01.18.
  */
-public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Process, ProcessActor.Events> {
+public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Process, Process.Events> {
 
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
@@ -60,10 +60,9 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
     }
 
     @Override
-    public Class<Events> domainEventClass() {
-        return Events.class;
+    public Class<Process.Events> domainEventClass() {
+        return Process.Events.class;
     }
-
 
     /**
      * For testing purpose only
@@ -135,12 +134,12 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
     }
 
     @Override
-    public Process applyEvent(Events domainEvent, Process process) {
+    public Process applyEvent(Process.Events domainEvent, Process process) {
         log.debug("Applying event. Recovery: {}. EventData: {}",recoveryRunning() ,domainEvent);
 
-        if (domainEvent instanceof AddLastTaskEvt) {
-            process.addLastTask(((AddLastTaskEvt) domainEvent).task);
-        } else if (domainEvent instanceof SetToReadyEvt){
+        if (domainEvent instanceof Process.LastTaskAddedEvt) {
+            process.handleEvent((Process.LastTaskAddedEvt) domainEvent);
+        } else if (domainEvent instanceof Process.PassedReadyEvt){
 
             if (recoveryRunning()) {
                 try {
@@ -150,8 +149,8 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
                     getSelf().forward(new RecoverErrorOccurred(e), getContext());
                 }
             }
-        } else if (domainEvent instanceof SetContextEvt){
-            process.setProcessContext(((SetContextEvt) domainEvent).context);
+        } else if (domainEvent instanceof Process.ContextSetEvt){
+            process.handleEvent((Process.ContextSetEvt) domainEvent);
         }else {
             throw new RuntimeException("Unhandled event");
         }
@@ -160,7 +159,7 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
 
     private void createChildsForReadyState(Process process) {
         process.getChildTaskActorsCache().clear();
-        for (val taskContext : process.getTasksContexts()) {
+        for (val taskContext : process.getTasks()) {
             if (taskContext.getTaskProp().equals(Props.empty()))
                 throw new RuntimeException("Props is empty!");
             ActorRef taskRef = getContext().actorOf(taskContext.getTaskProp(), taskContext.getIdentifier().toString());
@@ -224,7 +223,7 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
                             new RuntimeException("Identifier is not unique")
                     ));
 
-        AddLastTaskEvt evt = new AddLastTaskEvt(command.context);
+        Process.LastTaskAddedEvt evt = new Process.LastTaskAddedEvt(command.context);
         return goTo(State.PREPARING)
                 .applying(evt)
                 .replying(new TaskSuccessAdded());
@@ -238,7 +237,7 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
         }
 
         return goTo(State.READY)
-                .applying(new SetToReadyEvt())
+                .applying(new Process.PassedReadyEvt())
                 .replying(new SuccessGoToReady());
     }
 
@@ -257,13 +256,13 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
         context.putAll(command.properties);
 
         return stay()
-                .applying(new SetContextEvt(context))
+                .applying(new Process.ContextSetEvt(context))
                 .replying(new SuccessSetContext());
     }
 
     private PersistentFSM.State handleSetContext(SetContextCmd command, Process process){
         return stay()
-                .applying(new SetContextEvt(command.properties))
+                .applying(new Process.ContextSetEvt(command.properties))
                 .replying(new SuccessSetContext());
     }
 
@@ -308,7 +307,7 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
 
     private PersistentFSM.State handleStartProcess(StartProcessCmd command, Process process){
 
-        Task firstTaskContext = process.getTasksContexts().get(0);
+        Task firstTaskContext = process.getTasks().get(0);
 
         val taskStateOpt = process.taskState(firstTaskContext.getIdentifier());
 
@@ -343,20 +342,20 @@ public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Proc
      *                 EVENTS                  *
      *=========================================*/
 
-    interface Events extends Serializable {}
-
-    @Value
-    private static class AddLastTaskEvt implements Events{
-        Task task;
-    }
-
-    @Value
-    private static class SetToReadyEvt implements Events{}
-
-    @Value
-    private static class SetContextEvt implements Events {
-        Map<String, Object> context;
-    }
+//    interface Events extends Serializable {}
+//
+//    @Value
+//    private static class LastTaskAddedEvt implements Events{
+//        Task task;
+//    }
+//
+//    @Value
+//    private static class PassedReadyEvt implements Events{}
+//
+//    @Value
+//    private static class ContextSetEvt implements Events {
+//        Map<String, Object> context;
+//    }
 
 //    @Value
 //    private class TaskStateChangeEvt implements Events {
