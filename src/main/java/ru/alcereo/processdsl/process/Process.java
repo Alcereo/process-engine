@@ -2,8 +2,6 @@ package ru.alcereo.processdsl.process;
 
 import akka.actor.ActorRef;
 import akka.actor.Props;
-import akka.event.Logging;
-import akka.event.LoggingAdapter;
 import akka.persistence.fsm.AbstractPersistentFSM;
 import akka.persistence.fsm.PersistentFSM;
 import lombok.Data;
@@ -13,6 +11,7 @@ import lombok.val;
 import ru.alcereo.processdsl.task.PersistFSMTask;
 import scala.Option;
 import scala.Tuple2;
+import scala.reflect.ClassTag;
 
 import java.io.Serializable;
 import java.util.*;
@@ -25,12 +24,31 @@ import static ru.alcereo.processdsl.task.PersistFSMTask.*;
  */
 public class Process extends AbstractPersistentFSM<Process.State, Process.StateData, Process.Events> {
 
-    private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+    /**
+     * Нужно тут тупо из-за бага Idea 2017
+     * Компилируется и без этого
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public ClassTag domainEventTag() {
+        return super.domainEventTag();
+    }
+
+    /**
+     * Нужно тут тупо из-за бага Idea 2017
+     * Компилируется и без этого
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public scala.collection.immutable.Map statesMap() {
+        return super.statesMap();
+    }
+
 
     private final String persistenceId;
 
     public static Props props(String persistenceId){
-        return Props.create(Process.class, (akka.japi.Creator<Process>) () -> new Process(persistenceId));
+        return Props.create(Process.class, () -> new Process(persistenceId));
     }
 
     @Override
@@ -60,7 +78,7 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
     private Process(String persistenceId) {
         this.persistenceId = persistenceId;
 
-        log.debug("Start new process instance....");
+        log().debug("Start new process instance....");
 
         startWith(State.NEW, new StateData());
 
@@ -115,7 +133,7 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
 
     @Override
     public StateData applyEvent(Events domainEvent, StateData currentData) {
-        log.debug("Applying event. Recovery: {}. EventData: {}",recoveryRunning() ,domainEvent);
+        log().debug("Applying event. Recovery: {}. EventData: {}",recoveryRunning() ,domainEvent);
 
         if (domainEvent instanceof AddLastTaskEvt) {
             currentData.addLastTask(((AddLastTaskEvt) domainEvent).context);
@@ -125,7 +143,7 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
                 try {
                     createChildsForReadyState(currentData);
                 } catch (Exception e) {
-                    log.error(e, "Error creating task actor");
+                    log().error(e, "Error creating task actor");
                     getSelf().forward(new RecoverErrorOccurred(e), getContext());
                 }
             }
@@ -309,11 +327,11 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
 
         return stateData.getIdentifierByActorRef(getSender())
                 .fold(() -> {
-                    log.warning("Get message from not registered child: {}", getSender());
+                    log().warning("Get message from not registered child: {}", getSender());
                     return stay();
                 },
                 identifier -> {
-                    log.debug("Get task state message: {} - {}", getSender(), taskState);
+                    log().debug("Get task state message: {} - {}", getSender(), taskState);
                     stateData.setTaskState(identifier, taskState);
                     return stay();
                 }
@@ -326,7 +344,7 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
     }
 
     private PersistentFSM.State handleTasksEvents(TaskEvents event, StateData stateData){
-        log.debug("Get event from task. Event: {}, Task: {}", event, getSender());
+        log().debug("Get event from task. Event: {}, Task: {}", event, getSender());
 
         getSender().tell(new GetTaskStateCmd(), getSelf());
 
@@ -334,7 +352,7 @@ public class Process extends AbstractPersistentFSM<Process.State, Process.StateD
             getSender().tell(new ExecuteCmd(), getSelf());
             return stay();
         }else {
-            log.error("Unregistered event from task: {}. Actor: {}", event, getSender());
+            log().error("Unregistered event from task: {}. Actor: {}", event, getSender());
             return stay();
         }
     }
