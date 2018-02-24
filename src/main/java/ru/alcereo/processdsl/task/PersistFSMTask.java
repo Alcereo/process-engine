@@ -1,11 +1,17 @@
 package ru.alcereo.processdsl.task;
 
 
+import akka.dispatch.OnComplete;
+import akka.dispatch.Recover;
 import akka.japi.pf.FI;
+import akka.pattern.Patterns;
 import akka.persistence.fsm.AbstractPersistentFSM;
 import akka.persistence.fsm.PersistentFSM;
 import lombok.Value;
 import ru.alcereo.processdsl.domain.Task;
+import scala.compat.java8.FutureConverters;
+import scala.concurrent.ExecutionContextExecutor;
+import scala.concurrent.Future;
 import scala.reflect.ClassTag;
 
 import java.io.Serializable;
@@ -16,7 +22,7 @@ import static ru.alcereo.processdsl.task.PersistFSMTask.TaskState.FINISHED;
 /**
  * Created by alcereo on 03.01.18.
  */
-public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTask.TaskState, Task, PersistFSMTask.TaskEvents> {
+public abstract class PersistFSMTask<TASK extends Task> extends AbstractPersistentFSM<PersistFSMTask.TaskState, TASK, PersistFSMTask.TaskEvents> {
 
     private final String persistentId;
 
@@ -52,7 +58,7 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
 
 
     @Override
-    public Task applyEvent(TaskEvents domainEvent, Task currentData) {
+    public TASK applyEvent(TaskEvents domainEvent, TASK currentData) {
         if (domainEvent instanceof PreparedEvt){
             return currentData.setProperties(((PreparedEvt) domainEvent).properties);
         }else if (domainEvent instanceof SuccessExecutedEvt){
@@ -61,16 +67,16 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
         throw new RuntimeException("Unhandled event: "+domainEvent.getClass().getName());
     }
 
-    public PersistFSMTask(String persistentId) {
+    public PersistFSMTask(String persistentId, TASK task) {
         this.persistentId = persistentId;
 
 
-        startWith(TaskState.NEW, Task.buildEmpty());
+        startWith(TaskState.NEW, task);
 
-        FI.Apply2<GetStateDataCmd, Task, State<TaskState, Task, TaskEvents>> getStateDataApply =
+        FI.Apply2<GetStateDataCmd, TASK, State<TaskState, TASK, TaskEvents>> getStateDataApply =
                 (getStateDataCmd, taskStateData) -> stay().replying(taskStateData);
 
-        FI.Apply2<GetTaskStateCmd, Task, State<TaskState, Task, TaskEvents>> getStateApply =
+        FI.Apply2<GetTaskStateCmd, TASK, State<TaskState, TASK, TaskEvents>> getStateApply =
                 (getStateDataCmd, taskStateData) -> stay().replying(stateName());
 
         when(TaskState.NEW,
@@ -113,11 +119,51 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
 
     }
 
-    public abstract void handleExecution(Task taskStateData);
+    /**========================================*
+     *                 HANDLERS                *
+     *=========================================*/
 
-    public abstract void handlePrepare(Task taskStateData);
+    public void handleExecution(TASK task){
 
-//    State
+        ExecutionContextExecutor ds = getContext().getSystem().dispatcher();
+
+
+        final Future<TaskEvents> executionResultF =
+                FutureConverters.toScala(task.execute());
+
+        final Future<?> resultEvent = executionResultF
+                .recover(new Recover<ExecutingFaled>() {
+                    @Override
+                    public ExecutingFaled recover(Throwable failure) {
+                        return new ExecutingFaled(failure);
+                    }
+                }, ds);
+
+        Patterns.pipe(resultEvent, ds)
+                .to(getSender())
+                .to(getSelf());
+
+    }
+
+    public void handlePrepare(TASK task){
+        ExecutionContextExecutor ds = getContext().getSystem().dispatcher();
+
+        final Future<Object> executionResultF =
+                FutureConverters.toScala(task.prepare());
+
+        executionResultF
+                .onComplete(new OnComplete<Object>() {
+                    @Override
+                    public void onComplete(Throwable failure, Object success) throws Throwable {
+                        log().error(failure, "Error prepare task!");
+                    }
+                }, ds);
+
+    };
+
+    /**========================================*
+     *                 STATE                   *
+     *=========================================*/
 
     public enum TaskState implements PersistentFSM.FSMState{
 
@@ -138,7 +184,9 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
         }
     }
 
-    //    Commands
+    /**========================================*
+     *                 COMMANDS                *
+     *=========================================*/
 
     public interface Command {
     }
@@ -157,7 +205,10 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
     @Value
     public static final class GetTaskStateCmd implements Command{}
 
-//    Events
+    /**========================================*
+     *                 EVENTS                  *
+     *=========================================*/
+
     @Override
     public Class<TaskEvents> domainEventClass() {
         return TaskEvents.class;
@@ -179,5 +230,11 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
 
     @Value
     public static final class ExecutingSuccessFinish {
+        Map<String, Object> result;
+    }
+
+    @Value
+    public static final class ExecutingFaled {
+        Throwable error;
     }
 }

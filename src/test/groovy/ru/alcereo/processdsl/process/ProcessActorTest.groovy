@@ -52,14 +52,14 @@ class ProcessActorTest extends GroovyTestCase {
         }
 
         @Override
-        void handleExecution(Task taskStateData) {
-            println "-- EXECUTED: ${taskStateData.properties.get(fieldToPrint)} --"
+        void handleExecution(Task task) {
+            println "-- EXECUTED: ${task.properties.get(fieldToPrint)} --"
         }
 
         @Override
-        void handlePrepare(Task taskStateData) {
-            println "-- PREPARED: ${taskStateData.properties.get(fieldToPrint)} --"
-            println "Context: ${taskStateData.properties}"
+        void handlePrepare(Task task) {
+            println "-- PREPARED: ${task.properties.get(fieldToPrint)} --"
+            println "Context: ${task.properties}"
         }
     }
 

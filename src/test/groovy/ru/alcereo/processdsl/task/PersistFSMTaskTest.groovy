@@ -48,13 +48,13 @@ class PersistFSMTaskTest extends GroovyTestCase {
         }
 
         @Override
-        void handleExecution(Task taskStateData) {
-            println " -- EXECUTED: ${taskStateData.properties.get('text')} -- "
+        void handleExecution(Task task) {
+            println " -- EXECUTED: ${task.properties.get('text')} -- "
         }
 
         @Override
-        void handlePrepare(Task taskStateData) {
-            println " -- PREPARED: ${taskStateData.properties.get('text')} -- "
+        void handlePrepare(Task task) {
+            println " -- PREPARED: ${task.properties.get('text')} -- "
         }
     }
 
