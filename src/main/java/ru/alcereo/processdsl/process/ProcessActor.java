@@ -1,460 +1,328 @@
 package ru.alcereo.processdsl.process;
 
+import akka.actor.AbstractLoggingActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
+import akka.dispatch.Futures;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
-import akka.persistence.fsm.AbstractPersistentFSM;
-import akka.persistence.fsm.PersistentFSM;
+import akka.pattern.Patterns;
+import akka.util.Timeout;
 import lombok.Value;
 import lombok.val;
-import ru.alcereo.processdsl.domain.Process;
+import ru.alcereo.processdsl.domain.BusinessProcess;
 import ru.alcereo.processdsl.domain.Task;
 import ru.alcereo.processdsl.task.PersistFSMTask;
-import scala.reflect.ClassTag;
+import scala.concurrent.Future;
 
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
-import static ru.alcereo.processdsl.task.PersistFSMTask.*;
+import static ru.alcereo.processdsl.Utils.failure;
+import static ru.alcereo.processdsl.Utils.success;
 
 /**
  * Created by alcereo on 01.01.18.
  */
-public class ProcessActor extends AbstractPersistentFSM<ProcessActor.State, Process, Process.Events> {
+public class ProcessActor extends AbstractLoggingActor {
 
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
-    private final String persistenceId;
+    private ActorRef processRepository;
 
-    /**
-     * Нужно тут тупо из-за бага Idea 2017
-     * Компилируется и без этого
-     */
-    @Override
-    @SuppressWarnings("unchecked")
-    public ClassTag domainEventTag() {
-        return super.domainEventTag();
+    //  ProcessInMemoryRepository by props
+
+    public static Props props(Props processRepositoryProp){
+        return Props.create(ProcessActor.class, () -> new ProcessActor(processRepositoryProp));
     }
 
-    /**
-     * Нужно тут тупо из-за бага Idea 2017
-     * Компилируется и без этого
-     */
-    @Override
-    @SuppressWarnings("unchecked")
-    public scala.collection.immutable.Map statesMap() {
-        return super.statesMap();
+    private ProcessActor(Props processRepositoryProp) {
+        this.processRepository = getContext().actorOf(processRepositoryProp, "process-repository");
     }
 
-    public static Props props(String persistenceId){
-        return Props.create(ProcessActor.class, () -> new ProcessActor(persistenceId));
+    //  ProcessInMemoryRepository by actorRef
+
+    public static Props props(ActorRef processRepository){
+        return Props.create(ProcessActor.class, () -> new ProcessActor(processRepository));
+    }
+
+    private ProcessActor(ActorRef processRepository) {
+        this.processRepository = processRepository;
     }
 
     @Override
-    public String persistenceId() {
-        return this.persistenceId;
-    }
-
-    @Override
-    public Class<Process.Events> domainEventClass() {
-        return Process.Events.class;
-    }
-
-    /**
-     * For testing purpose only
-     * @param persistenceId identifier to persist and recover data
-     * @param createChild create child actor on start
-     * @param childName child actor name
-     */
-    ProcessActor(String persistenceId, boolean createChild, String childName){
-        this(persistenceId);
-
-        if (createChild)
-            getContext().actorOf(Props.empty(), childName);
-    }
-
-    private ProcessActor(String persistenceId) {
-        this.persistenceId = persistenceId;
-
-        log.debug("Start new process instance....");
-
-        startWith(State.NEW, new Process());
-
-        when(State.NEW,
-                matchEvent(AddLastTaskCmd.class,            this::handleAddLastTask)        // -ADD TASK
-                        .event(AppendToContextCmd.class,    this::handleAppendToContext)    // -CONTEXT
-                        .event(SetContextCmd.class,         this::handleSetContext)         // -CONTEXT
-                        .event(GetContextCmd.class,         this::handleGetContext)         // -CONTEXT
-                        .event(GetStateDataCmd.class,       this::handleGetStateData)       // =STATE
-                        .event(GetStateCmd.class,           this::handleGetState)           // =STATE
-        );
-
-        when(State.PREPARING,
-                matchEvent(AddLastTaskCmd.class,            this::handleAddLastTask)
-                        .event(AppendToContextCmd.class,    this::handleAppendToContext)
-                        .event(SetContextCmd.class,         this::handleSetContext)
-                        .event(GetContextCmd.class,         this::handleGetContext)
-                        .event(SetReadyCmd.class,           this::handleSetToReady)
-                        .event(GetStateDataCmd.class,       this::handleGetStateData)
-                        .event(GetStateCmd.class,           this::handleGetState)
-        );
-
-        when(State.READY,
-                matchEvent(GetStateDataCmd.class,           this::handleGetStateData)
-                        .event(GetStateCmd.class,           this::handleGetState)
-                        .event(GetChildsCmd.class,          this::handleGetChilds)
-                        .event(AppendToContextCmd.class,    this::handleAppendToContext)
-                        .event(SetContextCmd.class,         this::handleSetContext)
-                        .event(GetContextCmd.class,         this::handleGetContext)
-                        .event(GetTasksStatesCmd.class,     this::handleGetTasksState)
-                        .event(TaskState.class,             this::handleTaskState)
-                        .event(StartProcessCmd.class,       this::handleStartProcess)
-//                    .event(TaskEvents.class,            this::handleTasksEvents)
-                        .event(RecoverErrorOccurred.class, (recoverErrorOccurred, process) -> goTo(State.RECOVERING_ERROR))
-        );
-
-        when(State.START,
-                matchEvent(GetStateDataCmd.class,           this::handleGetStateData)
-                        .event(GetStateCmd.class,           this::handleGetState)
-                        .event(GetChildsCmd.class,          this::handleGetChilds)
-                        .event(GetTasksStatesCmd.class,     this::handleGetTasksState)
-                        .event(TaskState.class,             this::handleTaskState)
-                        .event(TaskEvents.class,            this::handleTasksEvents)
-        );
-
-        when(State.RECOVERING_ERROR,
-                matchEvent(GetStateDataCmd.class,       this::handleGetStateData)
-                        .event(GetStateCmd.class,       this::handleGetState)
-        );
-
-    }
-
-    @Override
-    public Process applyEvent(Process.Events domainEvent, Process process) {
-        log.debug("Applying event. Recovery: {}. EventData: {}",recoveryRunning() ,domainEvent);
-
-        if (domainEvent instanceof Process.LastTaskAddedEvt) {
-            process.handleEvent((Process.LastTaskAddedEvt) domainEvent);
-        } else if (domainEvent instanceof Process.PassedReadyEvt){
-
-            if (recoveryRunning()) {
-                try {
-                    createChildsForReadyState(process);
-                } catch (Exception e) {
-                    log.error(e, "Error creating task actor");
-                    getSelf().forward(new RecoverErrorOccurred(e), getContext());
-                }
-            }
-        } else if (domainEvent instanceof Process.ContextSetEvt){
-            process.handleEvent((Process.ContextSetEvt) domainEvent);
-        }else {
-            throw new RuntimeException("Unhandled event");
-        }
-        return process;
-    }
-
-    private void createChildsForReadyState(Process process) {
-        process.getChildTaskActorsCache().clear();
-        for (val taskContext : process.getTasks()) {
-            if (taskContext.getTaskProp().equals(Props.empty()))
-                throw new RuntimeException("Props is empty!");
-            ActorRef taskRef = getContext().actorOf(taskContext.getTaskProp(), taskContext.getIdentifier().toString());
-            getContext().watch(taskRef);
-
-            process.getChildTaskActorsCache().put(taskRef, taskContext);
-
-            //Отправим запрос, чтобы узнать статус таски. Актор персистентный,
-            // задача могла быть создана уже в каком-нибудь не дефолтном статусе
-            taskRef.tell(new GetTaskStateCmd(), getSelf());
-        }
-    }
-
-    /**========================================*
-     *                 STATE                   *
-     *=========================================*/
-
-    public enum State implements PersistentFSM.FSMState {
-        NEW("New empty process"),
-        RECOVERING_ERROR("Error occurred when recover"),
-        PREPARING("ProcessActor in preparing task task task"),
-        READY("Ready to start"),
-        START("ProcessActor is executing tasks");
-
-        private final String identifier;
-
-        State(String identifier) {
-            this.identifier = identifier;
-        }
-
-        @Override
-        public String identifier() {
-            return identifier;
-        }
+    public Receive createReceive() {
+        return receiveBuilder()
+                .match(CreateNewProcessCmd.class,               this::handleCommand)
+                .match(AddLastTaskCmd.class,                    this::handleCommand)
+                .match(StartProcessCmd.class,                   this::handleCommand)
+                .match(PersistFSMTask.SuccessExecutedEvt.class, this::handleEvent)
+                .matchAny(o -> log().error("Unhandled message: {}", o))
+                .build();
     }
 
 
     /**========================================*
-     *                 HANDLERS                *
+     *                HANDLERS                 *
      *=========================================*/
 
-    private PersistentFSM.State handleGetStateData(GetStateDataCmd getStateDataCmd, Process process){
-        return stay().replying(process);
+    private void handleCommand(AddLastTaskCmd cmd) {
+
+        final ActorRef initSender = getSender();
+
+        Future<Object> processF = Patterns
+                .ask(processRepository,
+                        new ProcessRepositoryAbstractActor.GetProcessByUID(cmd.getProcessUid()),
+                        Timeout.apply(5, TimeUnit.SECONDS)
+                );
+
+        Future<Object> addTaskAndUpdateF = processF.flatMap(
+                result -> {
+                    log().debug("Get process from repo: {}", result);
+                    if (result instanceof BusinessProcess) {
+
+                        final BusinessProcess process = (BusinessProcess) result;
+
+                        process.addLastTask(cmd.getTask());
+
+                        return Patterns.ask(processRepository,
+                                new ProcessRepositoryAbstractActor.UpdateProcess(process),
+                                Timeout.apply(5, TimeUnit.SECONDS)
+                        );
+                    }else if (result instanceof ProcessRepositoryAbstractActor.ProcessNotFound) {
+                        return Futures.failed(new Exception("Process not found with uid: "+ cmd.getProcessUid()));
+                    } else {
+                        return Futures.failed(new Exception("Expect class BusinessProcess. get: " + result.getClass().getName()));
+                    }
+                }, getContext().dispatcher());
+
+
+        addTaskAndUpdateF.onFailure(
+                failure(throwable -> {
+                    log().error(throwable, "Error updating process");
+                    initSender.tell(new CommandException(throwable), getSelf());
+                }),
+                getContext().dispatcher());
+
+        addTaskAndUpdateF.onSuccess(
+                success((Object result) ->{
+                    log().debug("Success updatig process: {}", result);
+                    initSender.tell(new SuccessCommand(), getSelf());
+                }),
+                getContext().dispatcher());
+
+        log.debug("Handling add task finished");
+
     }
 
-    private PersistentFSM.State handleGetState(GetStateCmd getStateCmd, Process process){
-        return stay().replying(stateName());
+    private void handleCommand(CreateNewProcessCmd cmd) {
+
+        final ActorRef initSender = getSender();
+
+        val process = new BusinessProcess(cmd.getUuid());
+
+        Future<Object> processF = Patterns
+                .ask(processRepository,
+                        new ProcessRepositoryAbstractActor.AddProcess(process),
+                        Timeout.apply(5, TimeUnit.SECONDS)
+                );
+
+        processF.onFailure(
+                failure(throwable -> {
+                    log().error(throwable, "Error creating process");
+                    initSender.tell(new CommandException(throwable), getSelf());
+                }),
+                getContext().dispatcher());
+
+        processF.onSuccess(
+                success((Object result) ->{
+                    log().debug("Success creating process: {}", result);
+                    initSender.tell(new SuccessCommand(), getSelf());
+                }),
+                getContext().dispatcher());
+
+        log.debug("Start process handling finished");
+
     }
 
-    private PersistentFSM.State handleAddLastTask(AddLastTaskCmd command, Process process){
+    private void handleCommand(StartProcessCmd cmd) {
 
-        if (command.context.getTaskProp().equals(Props.empty()))
-            return stay().replying(
-                    new TaskAddingError(
-                            new RuntimeException("Props is empty")
-                    ));
+        log().debug("Start process with id: {}", cmd.getProcessUid());
 
-        if (process.containsIdentifier(command.context.getIdentifier()))
-            return stay().replying(
-                    new TaskAddingError(
-                            new RuntimeException("Identifier is not unique")
-                    ));
+        final ActorRef initSender = getSender();
 
-        Process.LastTaskAddedEvt evt = new Process.LastTaskAddedEvt(command.context);
-        return goTo(State.PREPARING)
-                .applying(evt)
-                .replying(new TaskSuccessAdded());
+        Future<Object> processF = Patterns
+                .ask(processRepository,
+                        new ProcessRepositoryAbstractActor.GetProcessByUID(cmd.getProcessUid()),
+                        Timeout.apply(5, TimeUnit.SECONDS)
+                );
+
+        Future<Object> resultF = processF.flatMap(
+                result -> {
+                    log().debug("Get process from repo: {}", result);
+                    if (result instanceof BusinessProcess) {
+
+//                        Main method place
+                        final BusinessProcess process = (BusinessProcess) result;
+
+                        Task task = process.getFirstTask();
+                        ActorRef taskActor = getContext().actorOf(task.getType().getTaskActorProps(), "task-" + task.getIdentifier());
+
+                        log().debug("Send command to append properties to actor task");
+
+                        return Patterns.ask(
+                                taskActor,
+                                new PersistFSMTask.AppendToContextCmd(task.getProperties()),
+                                Timeout.apply(5, TimeUnit.SECONDS)
+                        ).flatMap(
+                                appendResult -> {
+                                    log().debug("Get append command result: {}", result);
+
+                                    if (appendResult instanceof PersistFSMTask.CmdSuccess){
+
+                                        log().debug("Send start task command");
+                                        return Patterns.ask(
+                                                taskActor,
+                                                new PersistFSMTask.StartExecutingCmd(),
+                                                Timeout.apply(5, TimeUnit.SECONDS)
+                                        );
+                                    }else {
+                                        return Futures.failed(new Exception("Append properties error: "+ appendResult));
+                                    }
+                                }, getContext().dispatcher()
+                        );
+
+                    }else if (result instanceof ProcessRepositoryAbstractActor.ProcessNotFound) {
+                        return Futures.failed(new Exception("Process not found with uid: "+ cmd.getProcessUid()));
+                    } else {
+                        return Futures.failed(new Exception("Expect class BusinessProcess. get: " + result.getClass().getName()));
+                    }
+                }, getContext().dispatcher());
+
+
+        resultF.onFailure(
+                failure(throwable -> {
+                    log().error(throwable, "Error starting process");
+                    initSender.tell(new CommandException(throwable), getSelf());
+                }),
+                getContext().dispatcher());
+
+        resultF.onSuccess(
+                success((Object result) ->{
+                    log().debug("Success starting process: {}", cmd);
+                    initSender.tell(new SuccessCommand(), getSelf());
+                }),
+                getContext().dispatcher());
+
     }
 
-    private PersistentFSM.State handleSetToReady(SetReadyCmd getStateDataCmd, Process process){
-        try {
-            createChildsForReadyState(process);
-        }catch (Exception e){
-            return stay().replying(new ErrorGoToReady(e));
-        }
+    private void handleEvent(PersistFSMTask.SuccessExecutedEvt evt) {
 
-        return goTo(State.READY)
-                .applying(new Process.PassedReadyEvt())
-                .replying(new SuccessGoToReady());
-    }
+        log().debug("Handle task success execution event: {}", evt);
 
-    private PersistentFSM.State handleGetChilds(GetChildsCmd getStateDataCmd, Process process){
-        ChildTaskList replyValue = new ChildTaskList(
-                process.getTaskRefs()
-        );
+//        final ActorRef initSender = getSender();
 
-        return stay()
-                .replying(replyValue);
-    }
+        Future<Object> processF = Patterns
+                .ask(processRepository,
+                        new ProcessRepositoryAbstractActor.GetProcessByTaskUid(evt.getTaskUid()),
+                        Timeout.apply(5, TimeUnit.SECONDS)
+                );
 
-    private PersistentFSM.State handleAppendToContext(AppendToContextCmd command, Process process){
+        Future<Object> resultF = processF.flatMap(
+                result -> {
+                    log().debug("Get process from repo: {}", result);
+                    if (result instanceof BusinessProcess) {
 
-        val context = process.getProcessContext();
-        context.putAll(command.properties);
+                        final BusinessProcess process = (BusinessProcess) result;
 
-        return stay()
-                .applying(new Process.ContextSetEvt(context))
-                .replying(new SuccessSetContext());
-    }
+                        if (process.isLastTask(evt.getTaskUid())){
+                            return Futures.successful("Process finished");
+                        }else {
+                            val taskOpt = process.getNextTaskAfter(evt.getTaskUid());
+                            if (taskOpt.isPresent()) {
+                                val task = taskOpt.get();
+                                val taskActor = getContext().actorOf(task.getType().getTaskActorProps(), "task-" + task.getIdentifier());
 
-    private PersistentFSM.State handleSetContext(SetContextCmd command, Process process){
-        return stay()
-                .applying(new Process.ContextSetEvt(command.properties))
-                .replying(new SuccessSetContext());
-    }
+                                log().debug("Send command to append properties to actor task");
 
-    private PersistentFSM.State handleGetContext(GetContextCmd command, Process process){
-        return stay()
-                .replying(new ProcessContextMessage(process.getProcessContext()));
-    }
+                                return Patterns.ask(
+                                        taskActor,
+                                        new PersistFSMTask.AppendToContextCmd(task.getProperties()),
+                                        Timeout.apply(5, TimeUnit.SECONDS)
+                                ).flatMap(
+                                        appendResult -> {
+                                            log().debug("Get append command result: {}", result);
 
-    private PersistentFSM.State handleTaskState(TaskState taskState, Process process){
+                                            if (appendResult instanceof PersistFSMTask.CmdSuccess) {
 
-        return process.getIdentifierByActorRef(getSender())
-                .fold(() -> {
-                            log.warning("Get message from not registered child: {}", getSender());
-                            return stay();
-                        },
-                        identifier -> {
-                            log.debug("Get task state message: {} - {}", getSender(), taskState);
-                            process.setTaskState(identifier, taskState);
-                            return stay();
+                                                log().debug("Send start task command");
+                                                return Patterns.ask(
+                                                        taskActor,
+                                                        new PersistFSMTask.StartExecutingCmd(),
+                                                        Timeout.apply(5, TimeUnit.SECONDS)
+                                                );
+                                            } else {
+                                                return Futures.failed(new Exception("Append properties error: " + appendResult));
+                                            }
+                                        }, getContext().dispatcher()
+                                );
+                            } else {
+                                return Futures.failed(new Exception("Next task not found: " + evt.getTaskUid()));
+                            }
                         }
-                );
-    }
+                    }else if (result instanceof ProcessRepositoryAbstractActor.ProcessNotFound) {
+                        return Futures.failed(new Exception("Process not found with task uid: "+ evt.getTaskUid()));
+                    } else {
+                        return Futures.failed(new Exception("Expect class BusinessProcess. get: " + result.getClass().getName()));
+                    }
+                }, getContext().dispatcher());
 
-    private PersistentFSM.State handleGetTasksState(GetTasksStatesCmd command, Process process){
-        return stay()
-                .replying(new TasksStatesMessage(process.getTasksStatuses()));
-    }
+        resultF.onFailure(
+                failure(throwable -> {
+                    log().error(throwable, "Error updating process");
+//                    initSender.tell(new CommandException(throwable), getSelf());
+                }),
+                getContext().dispatcher());
+//
+//        resultF.onSuccess(
+//                success((Object result) ->{
+//                    log().debug("Success updatig process: {}", result);
+//                    initSender.tell(new SuccessCommand(), getSelf());
+//                }),
+//                getContext().dispatcher());
 
-    private PersistentFSM.State handleTasksEvents(TaskEvents event, Process process){
-        log.debug("Get event from task. Event: {}, Task: {}", event, getSender());
-
-        getSender().tell(new GetTaskStateCmd(), getSelf());
-
-        if (event instanceof PreparedEvt){
-            getSender().tell(new ExecuteCmd(), getSelf());
-            return stay();
-        }else {
-            log.error("Unregistered event from task: {}. Actor: {}", event, getSender());
-            return stay();
-        }
-    }
-
-    private PersistentFSM.State handleStartProcess(StartProcessCmd command, Process process){
-
-        Task firstTaskContext = process.getTasks().get(0);
-
-        val taskStateOpt = process.taskState(firstTaskContext.getIdentifier());
-
-        if (taskStateOpt.isEmpty())
-            return stay().replying(new ProcessStartError(new RuntimeException("Don`t found first task id in statuses list")));
-
-        if (!taskStateOpt.get().equals(TaskState.NEW))
-            return stay().replying(new ProcessStartError(new RuntimeException("First task not in NEW status")));
-
-
-        val taskRef = process.getActorRefByIdentifier(firstTaskContext.getIdentifier());
-
-        if (taskRef.isEmpty())
-            return stay().replying(new ProcessStartError(new RuntimeException("Don`t found task ref by identifier")));
-
-        val propertyIn = new HashMap<String, Object>();
-
-        firstTaskContext.getInnerPropsFromContext()
-                .forEach(strTuple -> propertyIn.put(
-                        strTuple._2(),
-                        process.getProcessContext().get(strTuple._1())
-                        )
-                );
-
-
-        taskRef.get().tell(new PrepareCmd(propertyIn), getSelf());
-
-        return goTo(State.START).replying(new SuccessStartProcess());
     }
 
     /**========================================*
-     *                 EVENTS                  *
+     *                COMMANDS                 *
      *=========================================*/
 
-//    interface Events extends Serializable {}
-//
-//    @Value
-//    private static class LastTaskAddedEvt implements Events{
-//        Task task;
-//    }
-//
-//    @Value
-//    private static class PassedReadyEvt implements Events{}
-//
-//    @Value
-//    private static class ContextSetEvt implements Events {
-//        Map<String, Object> context;
-//    }
-
-//    @Value
-//    private class TaskStateChangeEvt implements Events {
-//        ActorRef sender;
-//        PersistFSMTask.TaskState taskState;
-//    }
-//
-    /**========================================*
-     *                 COMMANDS                *
-     *=========================================*/
-
-    interface Command {}
+    interface Command extends Serializable {}
 
     @Value
-    public static final class AddLastTaskCmd implements Serializable{
-        Task context;
+    public static class AddLastTaskCmd implements Command {
+        public UUID processUid;
+        public Task task;
     }
 
     @Value
-    public static final class SetReadyCmd implements Command {}
-
-
-
-    @Value
-    public static final class GetStateDataCmd implements Command {}
-
-    @Value
-    public static final class GetStateCmd implements Command {}
-
-    @Value
-    public static final class GetChildsCmd implements Command {}
-
-    @Value
-    public static final class RecoverErrorOccurred implements Command {
-        Exception e;
+    public static class StartProcessCmd implements Command {
+        public UUID processUid;
     }
 
     @Value
-    public static final class AppendToContextCmd {
-        Map<String, Object> properties;
+    public static class CreateNewProcessCmd implements Command {
+        UUID uuid;
     }
 
     @Value
-    public static final class SetContextCmd {
-        Map<String, Object> properties;
+    public static class CommandException implements Command {
+        Throwable exception;
     }
 
     @Value
-    public static final class GetContextCmd {}
-
-    @Value
-    public static final class GetTasksStatesCmd {}
-
-    @Value
-    public static final class StartProcessCmd {}
-
-    /**========================================*
-     *                 OTHER                   *
-     *=========================================*/
-
-    @Value
-    public static final class TaskSuccessAdded{}
-
-    @Value
-    public static final class TaskAddingError{
-        Exception e;
+    public static class SuccessCommand implements Command {
     }
 
-    @Value
-    public static final class SuccessGoToReady {}
-
-    @Value
-    public static final class ErrorGoToReady {
-        Exception e;
-    }
-
-    @Value
-    public static final class ChildTaskList{
-        List<ActorRef> tasks;
-    }
-
-    @Value
-    public static final class SuccessSetContext {}
-
-    @Value
-    public static final class ProcessContextMessage {
-        Map<String, Object> processContext;
-    }
-
-    @Value
-    public static final class TasksStatesMessage {
-        Map<UUID, PersistFSMTask.TaskState> tasksStatuses;
-    }
-
-    @Value
-    public static class SuccessStartProcess {}
-
-    @Value
-    public static class ProcessStartError {
-        RuntimeException e;
-    }
 }
