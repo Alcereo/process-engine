@@ -261,18 +261,17 @@ public class ProcessActor extends AbstractLoggingActor {
     private void handleEvent(PersistFSMTask.SuccessExecutedEvt evt) {
         log().debug("Handle task success execution event: {}", evt);
 
-        taskResult(evt.getTaskUid());
+        handleTaskResult(evt.getTaskUid(), new Task.SuccessTaskResult(evt.getTaskUid()));
     }
 
 
     private void handleEvent(PersistFSMTask.ExecutedWithErrorsEvt evt){
         log().debug("Handle task error execution event: {}", evt);
 
+        handleTaskResult(evt.getTaskUid(), new Task.FailureTaskResult(evt.getTaskUid(), evt.getError()));
     }
 
-    private void taskResult(UUID taskUuid){
-
-//        final ActorRef initSender = getSender();
+    private void handleTaskResult(UUID taskUuid, Task.TaskResult taskResult){
 
         Future<Object> processF = Patterns
                 .ask(processRepository,
@@ -287,7 +286,7 @@ public class ProcessActor extends AbstractLoggingActor {
 
                         final BusinessProcess process = (BusinessProcess) result;
 
-                        process.acceptTaskResult(new Task.SuccessTaskResult(taskUuid));
+                        process.acceptTaskResult(taskResult);
 
                         if (process.isLastTask(taskUuid)){
                             observers.forEach(
@@ -341,7 +340,6 @@ public class ProcessActor extends AbstractLoggingActor {
         resultF.onFailure(
                 failure(throwable -> {
                     log().error(throwable, "Error updating process");
-//                    initSender.tell(new CommandException(throwable), getSelf());
                 }),
                 getContext().dispatcher());
 //
