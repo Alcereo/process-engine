@@ -16,6 +16,8 @@ import ru.alcereo.processdsl.task.PersistFSMTask;
 import scala.concurrent.Future;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -30,6 +32,7 @@ public class ProcessActor extends AbstractLoggingActor {
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
     private ActorRef processRepository;
+    private List<ActorRef> observers = new ArrayList<>();
 
     //  ProcessInMemoryRepository by props
 
@@ -54,14 +57,36 @@ public class ProcessActor extends AbstractLoggingActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
+//                Commands
                 .match(CreateNewProcessCmd.class,               this::handleCommand)
                 .match(AddLastTaskCmd.class,                    this::handleCommand)
                 .match(StartProcessCmd.class,                   this::handleCommand)
-                .match(PersistFSMTask.SuccessExecutedEvt.class, this::handleEvent)
+//                Events
+                .match(PersistFSMTask.SuccessExecutedEvt.class,     this::handleEvent)
+                .match(PersistFSMTask.ExecutedWithErrorsEvt.class,  this::handleEvent)
+//                Observers
+                .match(AddObserverMsg.class,                    this::addObserver)
+                .match(DeleteObserver.class,                    this::deleteObserver)
+
                 .matchAny(o -> log().error("Unhandled message: {}", o))
                 .build();
     }
 
+    /**========================================*
+     *            SERVICE HANDLERS             *
+     *=========================================*/
+
+    private void addObserver(AddObserverMsg msg) {
+        this.observers.add(msg.getObserver());
+        getSender().tell(new SuccessAdded(), getSelf());
+    }
+
+    private void deleteObserver(DeleteObserver msg) {
+        if (this.observers.remove(msg.getObserver()))
+            getSender().tell(new SuccessDelete(), getSelf());
+        else
+            getSender().tell(new NotFoundOnDelete(), getSelf());
+    }
 
     /**========================================*
      *                HANDLERS                 *
@@ -109,6 +134,10 @@ public class ProcessActor extends AbstractLoggingActor {
                 success((Object result) ->{
                     log().debug("Success updatig process: {}", result);
                     initSender.tell(new SuccessCommand(), getSelf());
+                    observers.forEach(actorRef -> actorRef.tell(
+                            new BusinessProcess.LastTaskAddedEvt(cmd.getTask()),
+                            getSelf()
+                    ));
                 }),
                 getContext().dispatcher());
 
@@ -139,6 +168,11 @@ public class ProcessActor extends AbstractLoggingActor {
                 success((Object result) ->{
                     log().debug("Success creating process: {}", result);
                     initSender.tell(new SuccessCommand(), getSelf());
+//                    TODO: Конечно нужно что-то на подобии Event-bus
+                    observers.forEach(actorRef -> actorRef.tell(
+                            new BusinessProcess.ProcessCreatedEvt(cmd.getUuid()),
+                            getSelf()
+                    ));
                 }),
                 getContext().dispatcher());
 
@@ -212,20 +246,37 @@ public class ProcessActor extends AbstractLoggingActor {
                 success((Object result) ->{
                     log().debug("Success starting process: {}", cmd);
                     initSender.tell(new SuccessCommand(), getSelf());
+                    observers.forEach(
+                            actorRef ->
+                                    actorRef.tell(
+                                            new BusinessProcess.ProcessStartedEvt(cmd.getProcessUid()),
+                                            getSelf()
+                                    )
+                    );
                 }),
                 getContext().dispatcher());
 
     }
 
     private void handleEvent(PersistFSMTask.SuccessExecutedEvt evt) {
-
         log().debug("Handle task success execution event: {}", evt);
+
+        taskResult(evt.getTaskUid());
+    }
+
+
+    private void handleEvent(PersistFSMTask.ExecutedWithErrorsEvt evt){
+        log().debug("Handle task error execution event: {}", evt);
+
+    }
+
+    private void taskResult(UUID taskUuid){
 
 //        final ActorRef initSender = getSender();
 
         Future<Object> processF = Patterns
                 .ask(processRepository,
-                        new ProcessRepositoryAbstractActor.GetProcessByTaskUid(evt.getTaskUid()),
+                        new ProcessRepositoryAbstractActor.GetProcessByTaskUid(taskUuid),
                         Timeout.apply(5, TimeUnit.SECONDS)
                 );
 
@@ -236,10 +287,19 @@ public class ProcessActor extends AbstractLoggingActor {
 
                         final BusinessProcess process = (BusinessProcess) result;
 
-                        if (process.isLastTask(evt.getTaskUid())){
+                        process.acceptTaskResult(new Task.SuccessTaskResult(taskUuid));
+
+                        if (process.isLastTask(taskUuid)){
+                            observers.forEach(
+                                    actorRef ->
+                                            actorRef.tell(
+                                                    new BusinessProcess.ProcessFinishedEvt(process.getIdentifier()),
+                                                    getSelf()
+                                            )
+                            );
                             return Futures.successful("Process finished");
                         }else {
-                            val taskOpt = process.getNextTaskAfter(evt.getTaskUid());
+                            val taskOpt = process.getNextTaskAfter(taskUuid);
                             if (taskOpt.isPresent()) {
                                 val task = taskOpt.get();
                                 val taskActor = getContext().actorOf(task.getType().getTaskActorProps(), "task-" + task.getIdentifier());
@@ -268,11 +328,11 @@ public class ProcessActor extends AbstractLoggingActor {
                                         }, getContext().dispatcher()
                                 );
                             } else {
-                                return Futures.failed(new Exception("Next task not found: " + evt.getTaskUid()));
+                                return Futures.failed(new Exception("Next task not found: " + taskUuid));
                             }
                         }
                     }else if (result instanceof ProcessRepositoryAbstractActor.ProcessNotFound) {
-                        return Futures.failed(new Exception("Process not found with task uid: "+ evt.getTaskUid()));
+                        return Futures.failed(new Exception("Process not found with task uid: "+ taskUuid));
                     } else {
                         return Futures.failed(new Exception("Expect class BusinessProcess. get: " + result.getClass().getName()));
                     }
@@ -291,7 +351,6 @@ public class ProcessActor extends AbstractLoggingActor {
 //                    initSender.tell(new SuccessCommand(), getSelf());
 //                }),
 //                getContext().dispatcher());
-
     }
 
     /**========================================*
@@ -323,6 +382,32 @@ public class ProcessActor extends AbstractLoggingActor {
 
     @Value
     public static class SuccessCommand implements Command {
+    }
+
+    /**========================================*
+     *                MESSAGES                 *
+     *=========================================*/
+
+    @Value
+    public static class AddObserverMsg {
+        ActorRef observer;
+    }
+
+    @Value
+    public static class DeleteObserver {
+        ActorRef observer;
+    }
+
+    @Value
+    public static class SuccessAdded {
+    }
+
+    @Value
+    public static class SuccessDelete {
+    }
+
+    @Value
+    public static class NotFoundOnDelete {
     }
 
 }

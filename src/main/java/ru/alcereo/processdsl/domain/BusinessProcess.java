@@ -27,6 +27,7 @@ public class BusinessProcess implements Serializable{
      *=========================================*/
 
     public void addLastTask(Task task){
+//        TODO: Переделать сохранение
         raisedBusinessEvents.add(new LastTaskAddedEvt(task));
     }
 
@@ -69,6 +70,10 @@ public class BusinessProcess implements Serializable{
                 .orElse(false);
     }
 
+    public void acceptTaskResult(Task.TaskResult taskResult) {
+
+    }
+
     /**========================================*
      *                EVENTS                   *
      *=========================================*/
@@ -105,6 +110,35 @@ public class BusinessProcess implements Serializable{
         }
     }
 
+    @Value
+    public static class ProcessCreatedEvt implements BusinessEvent {
+        UUID uuid;
+
+        @Override
+        public void handleByProcess(BusinessProcess process) {
+//            process.identifier = uuid;
+        }
+    }
+
+    @Value
+    public static class ProcessStartedEvt implements BusinessEvent {
+        UUID uuid;
+
+        @Override
+        public void handleByProcess(BusinessProcess process) {
+//            process.started = true;
+        }
+    }
+
+    @Value
+    public static class ProcessFinishedEvt implements BusinessEvent {
+        UUID uuid;
+
+        @Override
+        public void handleByProcess(BusinessProcess process) {
+//            process.finished = true;
+        }
+    }
 
     /**========================================*
      *               CORRUPTION                *

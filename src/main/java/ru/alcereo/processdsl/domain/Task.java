@@ -1,10 +1,7 @@
 package ru.alcereo.processdsl.domain;
 
 import akka.actor.Props;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
+import lombok.*;
 import scala.Tuple2;
 
 import java.io.Serializable;
@@ -39,7 +36,6 @@ public class Task implements Serializable {
         );
     }
 
-
     public Task setProperties(Map<String, Object> properties) {
         return new Task(
                 identifier,
@@ -49,6 +45,20 @@ public class Task implements Serializable {
                 outerPropsToContext,
                 type
         );
+    }
+
+
+    public interface TaskResult{}
+
+    @Value
+    public static class SuccessTaskResult implements TaskResult{
+        UUID identifier;
+    }
+
+    @Value
+    public static class FailureTaskResult implements TaskResult{
+        UUID identifier;
+        Throwable exeption;
     }
 
 }

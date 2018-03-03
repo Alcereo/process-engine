@@ -18,6 +18,7 @@ import org.mockserver.mockserver.MockServer;
 import org.mockserver.mockserver.MockServerBuilder;
 import org.mockserver.model.HttpRequest;
 import org.mockserver.model.HttpResponse;
+import ru.alcereo.processdsl.domain.BusinessProcess;
 import ru.alcereo.processdsl.domain.Task;
 import ru.alcereo.processdsl.domain.TaskActorType;
 import ru.alcereo.processdsl.task.PersistFSMTask;
@@ -139,12 +140,18 @@ public class ProcessActorTaskExecutingTest {
         val repository = Props.create(ProcessInMemoryRepository.class);
         val processApiActor = system.actorOf(ProcessActor.props(repository), "process-api");
         val probe = new TestKit(system);
+        val observerProbe = new TestKit(system);
+
+        System.out.println("------------------ Add observer");
+        processApiActor.tell(new ProcessActor.AddObserverMsg(observerProbe.getRef()), probe.getRef());
+        probe.expectMsgClass(ProcessActor.SuccessAdded.class);
 
         System.out.println("------------------ Create process");
         UUID processUuid = UUID.randomUUID();
+
         processApiActor.tell(new ProcessActor.CreateNewProcessCmd(processUuid), probe.getRef());
         probe.expectMsgClass(ProcessActor.SuccessCommand.class);
-
+        observerProbe.expectMsgClass(BusinessProcess.ProcessCreatedEvt.class);
 
         System.out.println("------------------ Add first task to process");
         UUID firstTaskUuid = UUID.randomUUID();
@@ -156,9 +163,10 @@ public class ProcessActorTaskExecutingTest {
                 new ArrayList<>(),
                 () -> RestSyncTask.props(firstTaskUuid,new OkHttpClient())
         );
+
         processApiActor.tell(new ProcessActor.AddLastTaskCmd(processUuid, firstTask), probe.getRef());
         probe.expectMsgClass(ProcessActor.SuccessCommand.class);
-
+        observerProbe.expectMsgClass(BusinessProcess.LastTaskAddedEvt.class);
 
         System.out.println("------------------ Add second task to process");
         UUID secondTaskUuid = UUID.randomUUID();
@@ -170,33 +178,20 @@ public class ProcessActorTaskExecutingTest {
                 new ArrayList<>(),
                 TestPrintTaskActor.getType(secondTaskUuid,"text-to-print")
         );
+
         processApiActor.tell(new ProcessActor.AddLastTaskCmd(processUuid, secondTask), probe.getRef());
         probe.expectMsgClass(ProcessActor.SuccessCommand.class);
+        observerProbe.expectMsgClass(BusinessProcess.LastTaskAddedEvt.class);
 
 
         System.out.println("------------------ Start execution process");
         processApiActor.tell(new ProcessActor.StartProcessCmd(processUuid), probe.getRef());
         probe.expectMsgClass(ProcessActor.SuccessCommand.class);
+        observerProbe.expectMsgClass(BusinessProcess.ProcessStartedEvt.class);
 
 
-        Thread.sleep(5000);
-
-//        BusinessProcess process = mock(BusinessProcess.class);
-//        when(process.getIdentifier()).thenReturn(UUID.randomUUID());
-//
-//        repository.tell(new ProcessRepositoryAbstractActor.AddProcess(process), probe.getRef());
-//        probe.expectMsgClass(Status.Success.class);
-//
-//        repository.tell(new ProcessRepositoryAbstractActor.GetProcessByUID(process.getIdentifier()), probe.getRef());
-//        probe.expectMsgClass(BusinessProcess.class);
-
-//        ----
-
-
-//        Task task = mock(Task.class);
-//
-//        processApiActor.tell(new ProcessActor.AddLastTaskCmd(process.getIdentifier(), task), probe.getRef());
-//        probe.expectMsgClass(ProcessActor.SuccessCommand.class);
+        System.out.println("------------------ Wait for finish");
+        observerProbe.expectMsgClass(BusinessProcess.ProcessFinishedEvt.class);
 
     }
 
