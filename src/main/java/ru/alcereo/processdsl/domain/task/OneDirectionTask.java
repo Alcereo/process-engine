@@ -6,7 +6,6 @@ import ru.alcereo.processdsl.domain.TaskActorType;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Consumer;
 
 
 public class OneDirectionTask extends DecisionTask {
@@ -21,12 +20,6 @@ public class OneDirectionTask extends DecisionTask {
 
         if (taskList.size()!=1)
             throw new IllegalArgumentException("Task list must have 1 elements in OneDirectionTask");
-    }
-
-    @Override
-    public void forEachTask(Consumer<AbstractTask> consumer) {
-        consumer.accept(this);
-        getTaskList().forEach(consumer);
     }
 
     @Override
