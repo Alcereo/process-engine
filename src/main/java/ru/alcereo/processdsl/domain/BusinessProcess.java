@@ -3,9 +3,7 @@ package ru.alcereo.processdsl.domain;
 import lombok.*;
 import ru.alcereo.processdsl.domain.task.AbstractTask;
 import ru.alcereo.processdsl.domain.task.ProcessResultTask;
-import ru.alcereo.processdsl.task.PersistFSMTask;
-import scala.Option;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import ru.alcereo.processdsl.domain.task.PropertiesExchangeData;
 
 import java.io.Serializable;
 import java.util.*;
@@ -16,7 +14,7 @@ public class BusinessProcess implements Serializable{
 
     final UUID identifier;
 
-    final AbstractTask headerTask;
+    AbstractTask headerTask;
 
     private AbstractTask currentTask;
 
@@ -25,18 +23,25 @@ public class BusinessProcess implements Serializable{
 
     @Builder
     public BusinessProcess(@NonNull UUID identifier,
-                           @NonNull AbstractTask headerTask,
+                           AbstractTask headerTask,
                            @NonNull Map<String, Object> processContext) {
 
         this.identifier = identifier;
         this.headerTask = headerTask;
         this.currentTask = headerTask;
-        this.processContext = processContext;
+        this.processContext = new HashMap<>(processContext);
+        updateHeaderTaskProperties(headerTask, processContext);
     }
 
     /**========================================*
      *               METODS                    *
      *=========================================*/
+
+    public void setHeaderTask(@NonNull AbstractTask headerTask){
+        this.headerTask = headerTask;
+        this.currentTask = headerTask;
+        updateHeaderTaskProperties(headerTask, processContext);
+    }
 
     public List<AbstractTask> getAllTasks(){
         List<AbstractTask> tasks = new ArrayList<>();
@@ -65,6 +70,8 @@ public class BusinessProcess implements Serializable{
         if (this.isFinished)
             throw new AcceptResultOnFinishException();
 
+        appendPropertiesFromTaskToContext(currentTask,result, getProcessContext());
+
         AbstractTask nextTaskByResult = currentTask.getNextTaskByResult(result);
 
         if (nextTaskByResult instanceof ProcessResultTask)
@@ -80,6 +87,24 @@ public class BusinessProcess implements Serializable{
 
     public boolean isFinished() {
         return this.isFinished;
+    }
+
+    /**========================================*
+     *                Utils                    *
+     *=========================================*/
+
+    private static void updateHeaderTaskProperties(AbstractTask headerTask, Map<String, Object> processContext) {
+        if (headerTask!=null)
+            headerTask.acceptDataToStart(new AbstractTask.SuccessTaskResult(UUID.randomUUID(), new HashMap<>()), processContext);
+    }
+
+    private void appendPropertiesFromTaskToContext(AbstractTask currentTask, AbstractTask.TaskResult result, Map<String, Object> processContext) {
+
+        Map<String, Object> resultProperties = result.getResultProperties();
+
+        for (PropertiesExchangeData.PropMappingData propMappingData : currentTask.getPropertiesExchangeData().getOuterPropsToContext()) {
+            processContext.put(propMappingData.getOuterProp(), resultProperties.get(propMappingData.getInnerProp()));
+        }
     }
 
     /**========================================*
@@ -117,90 +142,5 @@ public class BusinessProcess implements Serializable{
     public static class ProcessFinishedEvt implements BusinessEvent {
         UUID uuid;
     }
-
-    /**========================================*
-     *               CORRUPTION                *
-     *=========================================*/
-
-    public void addLastTask(AbstractTask task){
-//        raisedBusinessEvents.add(new LastTaskAddedEvt(task));
-        throw new NotImplementedException();
-    }
-
-    public AbstractTask getFirstTask() {
-        throw new NotImplementedException();
-    }
-
-    public void setTaskState(UUID identifier, PersistFSMTask.TaskState taskState) {
-        throw new NotImplementedException();
-//        tasksStatuses.put(identifier, taskState);
-    }
-
-    public Option<PersistFSMTask.TaskState> taskState(UUID identifier){
-        throw new NotImplementedException();
-//        return Option.apply(tasksStatuses.get(identifier));
-    }
-
-    public Optional<AbstractTask> getNextTaskAfter(UUID taskUid) {
-//        return tasks.stream()
-//                .filter(task -> task.getIdentifier().equals(taskUid))
-//                .findFirst()
-//                .map(task -> tasks.indexOf(task))
-//                .filter(integer -> integer!=-1)
-//                .map(integer -> {
-//                    if (tasks.size()<integer+2)
-//                        return null;
-//                    else
-//                        return tasks.get(integer+1);
-//                });
-
-        throw new NotImplementedException();
-    }
-
-    public Boolean isLastTask(UUID taskUid) {
-//        return tasks.stream()
-//                .filter(task -> task.getIdentifier().equals(taskUid))
-//                .findFirst()
-//                .map(task -> tasks.indexOf(task))
-//                .map(integer -> tasks.size()==integer+1)
-//                .orElse(false);
-
-        throw new NotImplementedException();
-    }
-
-    public void acceptTaskResult(AbstractTask.TaskResult taskResult) {
-        throw new NotImplementedException();
-    }
-
-    /**========================================*
-     *                 Actor legacy            *
-     *=========================================*/
-
-//    final Map<UUID, PersistFSMTask.TaskState> tasksStatuses = new HashMap<>();
-//    final Map<ActorRef, AbstractTask> childTaskActorsCache = new HashMap<>();
-//
-//    public Option<UUID> getIdentifierByActorRef(ActorRef ref){
-//        return Option.apply(childTaskActorsCache.get(ref))
-//                .map(AbstractTask::getIdentifier);
-//    }
-//
-//    public Option<ActorRef> getActorRefByIdentifier(UUID identifier) {
-//        return Option.apply(childTaskActorsCache
-//                .entrySet().stream()
-//                .filter(entry -> entry.getValue().getIdentifier().equals(identifier))
-//                .map(Map.Entry::getKey)
-//                .findFirst().orElse(null));
-//    }
-//
-//    public List<ActorRef> getTaskRefs() {
-////        return tasks.stream()
-////                .map(AbstractTask::getIdentifier)
-////                .map(this::getActorRefByIdentifier)
-////                .map(actorRefOption -> actorRefOption.fold(() -> null, v1 -> v1))
-////                .collect(Collectors.toList());
-//        throw new NotImplementedException();
-//    }
-
-
 
 }
