@@ -46,6 +46,17 @@ public abstract class AbstractTask implements Serializable {
         }
     }
 
+    public void acceptDataToStart(Map<String, Object> parentContext) {
+        val properties = getProperties();
+
+        for (PropertiesExchangeData.PropMappingData propTuple : getPropertiesExchangeData().getInnerPropsFromContext()) {
+            properties.put(
+                    propTuple.getInnerProp(),
+                    parentContext.get(propTuple.getOuterProp())
+            );
+        }
+    }
+
     public abstract AbstractTask getNextTaskByResult(final TaskResult result);
 
     public abstract void forEachTask(Consumer<AbstractTask> consumer);

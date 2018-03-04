@@ -95,7 +95,7 @@ public class BusinessProcess implements Serializable{
 
     private static void updateHeaderTaskProperties(AbstractTask headerTask, Map<String, Object> processContext) {
         if (headerTask!=null)
-            headerTask.acceptDataToStart(new AbstractTask.SuccessTaskResult(UUID.randomUUID(), new HashMap<>()), processContext);
+            headerTask.acceptDataToStart(processContext);
     }
 
     private void appendPropertiesFromTaskToContext(AbstractTask currentTask, AbstractTask.TaskResult result, Map<String, Object> processContext) {
