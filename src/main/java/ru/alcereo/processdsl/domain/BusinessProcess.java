@@ -2,142 +2,158 @@ package ru.alcereo.processdsl.domain;
 
 import akka.actor.ActorRef;
 import lombok.*;
+import ru.alcereo.processdsl.domain.task.AbstractTask;
+import ru.alcereo.processdsl.domain.task.ProcessResultTask;
 import ru.alcereo.processdsl.task.PersistFSMTask;
 import scala.Option;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.io.Serializable;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Data
 @EqualsAndHashCode(of = "identifier")
-@RequiredArgsConstructor
 public class BusinessProcess implements Serializable{
 
     final UUID identifier;
 
-    @Getter(value = AccessLevel.PRIVATE)
-    ArrayList<Task> tasks = new ArrayList<>();
-    Map<String, Object> processContext = new HashMap<>();
+    final AbstractTask headerTask;
 
-    List<BusinessEvent> raisedBusinessEvents = new ArrayList<>();
+    private AbstractTask currentTask;
+
+    Map<String, Object> processContext;
+    private boolean isFinished = false;
+
+    @Builder
+    public BusinessProcess(@NonNull UUID identifier,
+                           @NonNull AbstractTask headerTask,
+                           @NonNull Map<String, Object> processContext) {
+
+        this.identifier = identifier;
+        this.headerTask = headerTask;
+        this.currentTask = headerTask;
+        this.processContext = processContext;
+    }
 
     /**========================================*
      *               METODS                    *
      *=========================================*/
 
-    public void addLastTask(Task task){
-//        TODO: Переделать сохранение
-        raisedBusinessEvents.add(new LastTaskAddedEvt(task));
+    public List<AbstractTask> getAllTasks(){
+        List<AbstractTask> tasks = new ArrayList<>();
+        headerTask.forEachTask(tasks::add);
+        return tasks;
     }
 
-    public Task getFirstTask() {
-        return tasks.get(0);
+    public AbstractTask getCurrentTask(){
+        return currentTask;
     }
 
-    public boolean containsTaskIdentifier(UUID identifier) {
-        return tasks.stream().anyMatch(context -> context.getIdentifier().equals(identifier));
+    public boolean containsTaskIdentifier(UUID identifier){
+        AbstractTask[] finderTask = new AbstractTask[1];
+        headerTask.forEachTask(abstractTask -> {
+            if (abstractTask.getIdentifier().equals(identifier))
+                finderTask[0] = abstractTask;
+        });
+
+        return finderTask[0] != null;
     }
+
+    public void acceptCurrentTaskResult(AbstractTask.SuccessTaskResult result) throws AcceptResultOnFinish {
+        if (!result.getIdentifier().equals(currentTask.getIdentifier()))
+            throw new RuntimeException("Result not belong to current task");
+
+        if (this.isFinished)
+            throw new AcceptResultOnFinish();
+
+        AbstractTask nextTaskByResult = currentTask.getNextTaskByResult(result);
+
+        if (nextTaskByResult instanceof ProcessResultTask)
+            this.isFinished = true;
+        else
+            nextTaskByResult.acceptDataToStart(
+                    result,
+                    getProcessContext()
+            );
+
+        this.currentTask = nextTaskByResult;
+    }
+
+    public boolean isFinished() {
+        return this.isFinished;
+    }
+
 
     /**========================================*
      *         EVENTS SOURCED HANDLERS         *
      *=========================================*/
 
-    public void handleEvent(BusinessEvent businessEvent){
-        businessEvent.handleByProcess(this);
-    }
+    public Optional<AbstractTask> getNextTaskAfter(UUID taskUid) {
+//        return tasks.stream()
+//                .filter(task -> task.getIdentifier().equals(taskUid))
+//                .findFirst()
+//                .map(task -> tasks.indexOf(task))
+//                .filter(integer -> integer!=-1)
+//                .map(integer -> {
+//                    if (tasks.size()<integer+2)
+//                        return null;
+//                    else
+//                        return tasks.get(integer+1);
+//                });
 
-    public Optional<Task> getNextTaskAfter(UUID taskUid) {
-        return tasks.stream()
-                .filter(task -> task.getIdentifier().equals(taskUid))
-                .findFirst()
-                .map(task -> tasks.indexOf(task))
-                .filter(integer -> integer!=-1)
-                .map(integer -> {
-                    if (tasks.size()<integer+2)
-                        return null;
-                    else
-                        return tasks.get(integer+1);
-                });
+        throw new NotImplementedException();
     }
 
     public Boolean isLastTask(UUID taskUid) {
-        return tasks.stream()
-                .filter(task -> task.getIdentifier().equals(taskUid))
-                .findFirst()
-                .map(task -> tasks.indexOf(task))
-                .map(integer -> tasks.size()==integer+1)
-                .orElse(false);
+//        return tasks.stream()
+//                .filter(task -> task.getIdentifier().equals(taskUid))
+//                .findFirst()
+//                .map(task -> tasks.indexOf(task))
+//                .map(integer -> tasks.size()==integer+1)
+//                .orElse(false);
+
+        throw new NotImplementedException();
     }
 
-    public void acceptTaskResult(Task.TaskResult taskResult) {
-
+    public void acceptTaskResult(AbstractTask.TaskResult taskResult) {
+        throw new NotImplementedException();
     }
+
 
     /**========================================*
      *                EVENTS                   *
      *=========================================*/
 
     public interface BusinessEvent extends Serializable {
-        void handleByProcess(BusinessProcess process);
     }
 
     @Value
     public static class LastTaskAddedEvt implements BusinessEvent {
-        public Task task;
-
-
-        @Override
-        public void handleByProcess(BusinessProcess process) {
-            process.getTasks().add(task);
-        }
+        public AbstractTask task;
     }
 
     @Value
     public static class PassedReadyEvt implements BusinessEvent {
-        @Override
-        public void handleByProcess(BusinessProcess process) {
-        }
     }
 
     @Value
     public static class ContextSetEvt implements BusinessEvent {
         public Map<String, Object> context;
-
-        @Override
-        public void handleByProcess(BusinessProcess process) {
-            process.setProcessContext(context);
-        }
     }
 
     @Value
     public static class ProcessCreatedEvt implements BusinessEvent {
         UUID uuid;
-
-        @Override
-        public void handleByProcess(BusinessProcess process) {
-//            process.identifier = uuid;
-        }
     }
 
     @Value
     public static class ProcessStartedEvt implements BusinessEvent {
         UUID uuid;
-
-        @Override
-        public void handleByProcess(BusinessProcess process) {
-//            process.started = true;
-        }
     }
 
     @Value
     public static class ProcessFinishedEvt implements BusinessEvent {
         UUID uuid;
-
-        @Override
-        public void handleByProcess(BusinessProcess process) {
-//            process.finished = true;
-        }
     }
 
     /**========================================*
@@ -146,6 +162,13 @@ public class BusinessProcess implements Serializable{
 
 //        util func
 
+    public void addLastTask(AbstractTask task){
+//        raisedBusinessEvents.add(new LastTaskAddedEvt(task));
+    }
+
+    public AbstractTask getFirstTask() {
+        return headerTask;
+    }
 
     public void setTaskState(UUID identifier, PersistFSMTask.TaskState taskState) {
         tasksStatuses.put(identifier, taskState);
@@ -160,11 +183,11 @@ public class BusinessProcess implements Serializable{
      *=========================================*/
 
     final Map<UUID, PersistFSMTask.TaskState> tasksStatuses = new HashMap<>();
-    final Map<ActorRef, Task> childTaskActorsCache = new HashMap<>();
+    final Map<ActorRef, AbstractTask> childTaskActorsCache = new HashMap<>();
 
     public Option<UUID> getIdentifierByActorRef(ActorRef ref){
         return Option.apply(childTaskActorsCache.get(ref))
-                .map(Task::getIdentifier);
+                .map(AbstractTask::getIdentifier);
     }
 
     public Option<ActorRef> getActorRefByIdentifier(UUID identifier) {
@@ -176,11 +199,12 @@ public class BusinessProcess implements Serializable{
     }
 
     public List<ActorRef> getTaskRefs() {
-        return tasks.stream()
-                .map(Task::getIdentifier)
-                .map(this::getActorRefByIdentifier)
-                .map(actorRefOption -> actorRefOption.fold(() -> null, v1 -> v1))
-                .collect(Collectors.toList());
+//        return tasks.stream()
+//                .map(AbstractTask::getIdentifier)
+//                .map(this::getActorRefByIdentifier)
+//                .map(actorRefOption -> actorRefOption.fold(() -> null, v1 -> v1))
+//                .collect(Collectors.toList());
+        throw new NotImplementedException();
     }
 
 }
