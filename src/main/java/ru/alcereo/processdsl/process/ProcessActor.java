@@ -10,14 +10,16 @@ import akka.pattern.Patterns;
 import akka.util.Timeout;
 import lombok.Value;
 import lombok.val;
+import ru.alcereo.processdsl.domain.AcceptResultOnFinishException;
 import ru.alcereo.processdsl.domain.BusinessProcess;
-import ru.alcereo.processdsl.domain.Task;
+import ru.alcereo.processdsl.domain.task.AbstractTask;
 import ru.alcereo.processdsl.task.PersistFSMTask;
 import scala.concurrent.Future;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -59,7 +61,7 @@ public class ProcessActor extends AbstractLoggingActor {
         return receiveBuilder()
 //                Commands
                 .match(CreateNewProcessCmd.class,               this::handleCommand)
-                .match(AddLastTaskCmd.class,                    this::handleCommand)
+                .match(SetTasksToProcessCmd.class,                    this::handleCommand)
                 .match(StartProcessCmd.class,                   this::handleCommand)
 //                Events
                 .match(PersistFSMTask.SuccessExecutedEvt.class,     this::handleEvent)
@@ -92,7 +94,45 @@ public class ProcessActor extends AbstractLoggingActor {
      *                HANDLERS                 *
      *=========================================*/
 
-    private void handleCommand(AddLastTaskCmd cmd) {
+    private void handleCommand(CreateNewProcessCmd cmd) {
+
+        final ActorRef initSender = getSender();
+
+        val process = BusinessProcess.builder()
+                .identifier(cmd.getUuid())
+                .processContext(cmd.getProperties())
+                .build();
+
+        Future<Object> processF = Patterns
+                .ask(processRepository,
+                        new ProcessRepositoryAbstractActor.AddProcess(process),
+                        Timeout.apply(5, TimeUnit.SECONDS)
+                );
+
+        processF.onFailure(
+                failure(throwable -> {
+                    log().error(throwable, "Error creating process");
+                    initSender.tell(new CommandException(throwable), getSelf());
+                }),
+                getContext().dispatcher());
+
+        processF.onSuccess(
+                success((Object result) ->{
+                    log().debug("Success creating process: {}", result);
+                    initSender.tell(new SuccessCommand(), getSelf());
+//                    TODO: Конечно нужно что-то на подобии Event-bus
+                    observers.forEach(actorRef -> actorRef.tell(
+                            new BusinessProcess.ProcessCreatedEvt(cmd.getUuid()),
+                            getSelf()
+                    ));
+                }),
+                getContext().dispatcher());
+
+        log.debug("Start process handling finished");
+
+    }
+
+    private void handleCommand(SetTasksToProcessCmd cmd) {
 
         final ActorRef initSender = getSender();
 
@@ -109,7 +149,7 @@ public class ProcessActor extends AbstractLoggingActor {
 
                         final BusinessProcess process = (BusinessProcess) result;
 
-                        process.addLastTask(cmd.getTask());
+                        process.setHeaderTask(cmd.getTask());
 
                         return Patterns.ask(processRepository,
                                 new ProcessRepositoryAbstractActor.UpdateProcess(process),
@@ -145,41 +185,6 @@ public class ProcessActor extends AbstractLoggingActor {
 
     }
 
-    private void handleCommand(CreateNewProcessCmd cmd) {
-
-        final ActorRef initSender = getSender();
-
-        val process = new BusinessProcess(cmd.getUuid());
-
-        Future<Object> processF = Patterns
-                .ask(processRepository,
-                        new ProcessRepositoryAbstractActor.AddProcess(process),
-                        Timeout.apply(5, TimeUnit.SECONDS)
-                );
-
-        processF.onFailure(
-                failure(throwable -> {
-                    log().error(throwable, "Error creating process");
-                    initSender.tell(new CommandException(throwable), getSelf());
-                }),
-                getContext().dispatcher());
-
-        processF.onSuccess(
-                success((Object result) ->{
-                    log().debug("Success creating process: {}", result);
-                    initSender.tell(new SuccessCommand(), getSelf());
-//                    TODO: Конечно нужно что-то на подобии Event-bus
-                    observers.forEach(actorRef -> actorRef.tell(
-                            new BusinessProcess.ProcessCreatedEvt(cmd.getUuid()),
-                            getSelf()
-                    ));
-                }),
-                getContext().dispatcher());
-
-        log.debug("Start process handling finished");
-
-    }
-
     private void handleCommand(StartProcessCmd cmd) {
 
         log().debug("Start process with id: {}", cmd.getProcessUid());
@@ -200,7 +205,7 @@ public class ProcessActor extends AbstractLoggingActor {
 //                        Main method place
                         final BusinessProcess process = (BusinessProcess) result;
 
-                        Task task = process.getFirstTask();
+                        AbstractTask task = process.getCurrentTask();
                         ActorRef taskActor = getContext().actorOf(task.getType().getTaskActorProps(), "task-" + task.getIdentifier());
 
                         log().debug("Send command to append properties to actor task");
@@ -261,17 +266,22 @@ public class ProcessActor extends AbstractLoggingActor {
     private void handleEvent(PersistFSMTask.SuccessExecutedEvt evt) {
         log().debug("Handle task success execution event: {}", evt);
 
-        handleTaskResult(evt.getTaskUid(), new Task.SuccessTaskResult(evt.getTaskUid()));
+        handleTaskResult(
+                evt.getTaskUid(),
+                new AbstractTask.SuccessTaskResult(evt.getTaskUid(), evt.getProperties())
+        );
     }
-
 
     private void handleEvent(PersistFSMTask.ExecutedWithErrorsEvt evt){
         log().debug("Handle task error execution event: {}", evt);
 
-        handleTaskResult(evt.getTaskUid(), new Task.FailureTaskResult(evt.getTaskUid(), evt.getError()));
+        handleTaskResult(
+                evt.getTaskUid(),
+                new AbstractTask.FailureTaskResult(evt.getTaskUid(), evt.getError(), evt.getProperties())
+        );
     }
 
-    private void handleTaskResult(UUID taskUuid, Task.TaskResult taskResult){
+    private void handleTaskResult(UUID taskUuid, AbstractTask.TaskResult taskResult){
 
         Future<Object> processF = Patterns
                 .ask(processRepository,
@@ -286,9 +296,13 @@ public class ProcessActor extends AbstractLoggingActor {
 
                         final BusinessProcess process = (BusinessProcess) result;
 
-                        process.acceptTaskResult(taskResult);
+                        try {
+                            process.acceptCurrentTaskResult(taskResult);
+                        } catch (AcceptResultOnFinishException e) {
+                            return Futures.failed(new Exception("Process already finished: " + taskUuid, e));
+                        }
 
-                        if (process.isLastTask(taskUuid)){
+                        if (process.isFinished()){
                             observers.forEach(
                                     actorRef ->
                                             actorRef.tell(
@@ -298,37 +312,32 @@ public class ProcessActor extends AbstractLoggingActor {
                             );
                             return Futures.successful("Process finished");
                         }else {
-                            val taskOpt = process.getNextTaskAfter(taskUuid);
-                            if (taskOpt.isPresent()) {
-                                val task = taskOpt.get();
-                                val taskActor = getContext().actorOf(task.getType().getTaskActorProps(), "task-" + task.getIdentifier());
+                            val task = process.getCurrentTask();
+                            val taskActor = getContext().actorOf(task.getType().getTaskActorProps(), "task-" + task.getIdentifier());
 
-                                log().debug("Send command to append properties to actor task");
+                            log().debug("Send command to append properties to actor task");
 
-                                return Patterns.ask(
-                                        taskActor,
-                                        new PersistFSMTask.AppendToContextCmd(task.getProperties()),
-                                        Timeout.apply(5, TimeUnit.SECONDS)
-                                ).flatMap(
-                                        appendResult -> {
-                                            log().debug("Get append command result: {}", result);
+                            return Patterns.ask(
+                                    taskActor,
+                                    new PersistFSMTask.AppendToContextCmd(task.getProperties()),
+                                    Timeout.apply(5, TimeUnit.SECONDS)
+                            ).flatMap(
+                                    appendResult -> {
+                                        log().debug("Get append command result: {}", result);
 
-                                            if (appendResult instanceof PersistFSMTask.CmdSuccess) {
+                                        if (appendResult instanceof PersistFSMTask.CmdSuccess) {
 
-                                                log().debug("Send start task command");
-                                                return Patterns.ask(
-                                                        taskActor,
-                                                        new PersistFSMTask.StartExecutingCmd(),
-                                                        Timeout.apply(5, TimeUnit.SECONDS)
-                                                );
-                                            } else {
-                                                return Futures.failed(new Exception("Append properties error: " + appendResult));
-                                            }
-                                        }, getContext().dispatcher()
-                                );
-                            } else {
-                                return Futures.failed(new Exception("Next task not found: " + taskUuid));
-                            }
+                                            log().debug("Send start task command");
+                                            return Patterns.ask(
+                                                    taskActor,
+                                                    new PersistFSMTask.StartExecutingCmd(),
+                                                    Timeout.apply(5, TimeUnit.SECONDS)
+                                            );
+                                        } else {
+                                            return Futures.failed(new Exception("Append properties error: " + appendResult));
+                                        }
+                                    }, getContext().dispatcher()
+                            );
                         }
                     }else if (result instanceof ProcessRepositoryAbstractActor.ProcessNotFound) {
                         return Futures.failed(new Exception("Process not found with task uid: "+ taskUuid));
@@ -342,7 +351,7 @@ public class ProcessActor extends AbstractLoggingActor {
                     log().error(throwable, "Error updating process");
                 }),
                 getContext().dispatcher());
-//
+
 //        resultF.onSuccess(
 //                success((Object result) ->{
 //                    log().debug("Success updatig process: {}", result);
@@ -358,9 +367,15 @@ public class ProcessActor extends AbstractLoggingActor {
     interface Command extends Serializable {}
 
     @Value
-    public static class AddLastTaskCmd implements Command {
+    public static class CreateNewProcessCmd implements Command {
+        UUID uuid;
+        Map<String, Object> properties;
+    }
+
+    @Value
+    public static class SetTasksToProcessCmd implements Command {
         public UUID processUid;
-        public Task task;
+        public AbstractTask task;
     }
 
     @Value
@@ -368,10 +383,6 @@ public class ProcessActor extends AbstractLoggingActor {
         public UUID processUid;
     }
 
-    @Value
-    public static class CreateNewProcessCmd implements Command {
-        UUID uuid;
-    }
 
     @Value
     public static class CommandException implements Command {

@@ -10,7 +10,7 @@ import java.util.Set;
 
 class ProcessInMemoryRepository extends ProcessRepositoryAbstractActor{
 
-    private Set<BusinessProcess> processList = new HashSet<>();
+    private Set<BusinessProcess> processSet = new HashSet<>();
 
     @Override
     public Receive createReceive() {
@@ -26,7 +26,7 @@ class ProcessInMemoryRepository extends ProcessRepositoryAbstractActor{
     private void handleMessage(GetProcessByTaskUid message) {
         log().debug("Get process by task: {}", message.getTaskUID());
 
-        val processOpt = processList.stream()
+        val processOpt = processSet.stream()
                 .filter(process ->
                         process.containsTaskIdentifier(message.getTaskUID()))
                 .findFirst();
@@ -43,24 +43,20 @@ class ProcessInMemoryRepository extends ProcessRepositoryAbstractActor{
 
     private void handleMessage(AddProcess message) {
         log().debug("Add process: {}", message);
-        processList.add(message.getProcess());
+        processSet.add(message.getProcess());
         getSender().tell(new Status.Success(message), getSelf());
     }
 
     private void handleMessage(UpdateProcess message) {
         log().debug("Update process: {}", message);
 
-        val tmpProcess = message.getProcess();
-        tmpProcess.getRaisedBusinessEvents().forEach(tmpProcess::handleEvent);
-        tmpProcess.getRaisedBusinessEvents().clear();
-
-        processList.add(tmpProcess);
+        processSet.add(message.getProcess());
         getSender().tell(new Status.Success(message), getSelf());
     }
 
     private void handleMessage(GetProcessByUID message) {
         log().debug("Get process: {}", message);
-        Optional<BusinessProcess> processOpt = processList.stream()
+        Optional<BusinessProcess> processOpt = processSet.stream()
                 .filter(businessProcess -> businessProcess.getIdentifier().equals(message.getProcessUID()))
                 .findFirst();
 

@@ -19,8 +19,11 @@ import org.mockserver.mockserver.MockServerBuilder;
 import org.mockserver.model.HttpRequest;
 import org.mockserver.model.HttpResponse;
 import ru.alcereo.processdsl.domain.BusinessProcess;
-import ru.alcereo.processdsl.domain.Task;
 import ru.alcereo.processdsl.domain.TaskActorType;
+import ru.alcereo.processdsl.domain.task.AbstractTask;
+import ru.alcereo.processdsl.domain.task.OneDirectionTask;
+import ru.alcereo.processdsl.domain.task.ProcessSuccessResultTask;
+import ru.alcereo.processdsl.domain.task.PropertiesExchangeData;
 import ru.alcereo.processdsl.task.PersistFSMTask;
 import ru.alcereo.processdsl.task.RestSyncTask;
 import scala.concurrent.ExecutionContext;
@@ -28,7 +31,8 @@ import scala.concurrent.Future;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -142,44 +146,66 @@ public class ProcessActorTaskExecutingTest {
         val probe = new TestKit(system);
         val observerProbe = new TestKit(system);
 
+//        Create tasks
+
+        UUID firstTaskUuid = UUID.randomUUID();
+        UUID secondTaskUuid = UUID.randomUUID();
+
+        String processAddressPropName = "request-address";
+        String processResponsePropName = "request-result";
+
+        AbstractTask successFinishTask = ProcessSuccessResultTask.builder()
+                .identifier(UUID.randomUUID())
+                .build();
+
+        AbstractTask secondTask = OneDirectionTask.builder()
+                .identifier(secondTaskUuid)
+                .properties(new HashMap<>())
+                .taskList(
+                        Collections.singletonList(successFinishTask)
+                ).propertiesExchangeData(
+                        PropertiesExchangeData.builder()
+                                .addInnerPropsFromContext("text-to-print", processResponsePropName)
+                                .build()
+                ).type(
+                        TestPrintTaskActor.getType(secondTaskUuid,"text-to-print")
+                ).build();
+
+        AbstractTask firstTask = OneDirectionTask.builder()
+                .identifier(firstTaskUuid)
+                .properties(new HashMap<>())
+                .propertiesExchangeData(
+                        PropertiesExchangeData.builder()
+                                .addInnerPropsFromContext("address", processAddressPropName)
+                                .addOuterPropsToContext("http-response", processResponsePropName)
+                                .build()
+                ).taskList(
+                        Collections.singletonList(secondTask)
+                ).type(
+                        () -> RestSyncTask.props(firstTaskUuid,new OkHttpClient())
+                ).build();
+
+
         System.out.println("------------------ Add observer");
         processApiActor.tell(new ProcessActor.AddObserverMsg(observerProbe.getRef()), probe.getRef());
         probe.expectMsgClass(ProcessActor.SuccessAdded.class);
 
+
+
         System.out.println("------------------ Create process");
         UUID processUuid = UUID.randomUUID();
 
-        processApiActor.tell(new ProcessActor.CreateNewProcessCmd(processUuid), probe.getRef());
+        ImmutableMap<String, Object> processProps = ImmutableMap.of(processAddressPropName, TEST_ADDRESS);
+        processApiActor.tell(
+                new ProcessActor.CreateNewProcessCmd(processUuid, processProps),
+                probe.getRef()
+        );
         probe.expectMsgClass(ProcessActor.SuccessCommand.class);
         observerProbe.expectMsgClass(BusinessProcess.ProcessCreatedEvt.class);
 
-        System.out.println("------------------ Add first task to process");
-        UUID firstTaskUuid = UUID.randomUUID();
-        Task firstTask = new Task(
-                firstTaskUuid,
-                ImmutableMap.of("address", TEST_ADDRESS),
-                new ArrayList<>(),
-                new ArrayList<>(),
-                new ArrayList<>(),
-                () -> RestSyncTask.props(firstTaskUuid,new OkHttpClient())
-        );
 
-        processApiActor.tell(new ProcessActor.AddLastTaskCmd(processUuid, firstTask), probe.getRef());
-        probe.expectMsgClass(ProcessActor.SuccessCommand.class);
-        observerProbe.expectMsgClass(BusinessProcess.LastTaskAddedEvt.class);
-
-        System.out.println("------------------ Add second task to process");
-        UUID secondTaskUuid = UUID.randomUUID();
-        Task secondTask = new Task(
-                secondTaskUuid,
-                ImmutableMap.of("text-to-print", "Some text to print"),
-                new ArrayList<>(),
-                new ArrayList<>(),
-                new ArrayList<>(),
-                TestPrintTaskActor.getType(secondTaskUuid,"text-to-print")
-        );
-
-        processApiActor.tell(new ProcessActor.AddLastTaskCmd(processUuid, secondTask), probe.getRef());
+        System.out.println("------------------ Add tasks to process");
+        processApiActor.tell(new ProcessActor.SetTasksToProcessCmd(processUuid, firstTask), probe.getRef());
         probe.expectMsgClass(ProcessActor.SuccessCommand.class);
         observerProbe.expectMsgClass(BusinessProcess.LastTaskAddedEvt.class);
 

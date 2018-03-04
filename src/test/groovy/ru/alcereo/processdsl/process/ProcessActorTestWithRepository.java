@@ -9,8 +9,8 @@ import lombok.val;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import ru.alcereo.processdsl.domain.task.AbstractTask;
 import ru.alcereo.processdsl.domain.BusinessProcess;
-import ru.alcereo.processdsl.domain.Task;
 import scala.concurrent.duration.FiniteDuration;
 
 import java.nio.file.Path;
@@ -23,7 +23,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class ProcessActorTest {
+public class ProcessActorTestWithRepository {
 
     ActorSystem system;
 
@@ -59,9 +59,9 @@ public class ProcessActorTest {
 
         val processApiActor = system.actorOf(ProcessActor.props(repository), "process-api");
 
-        Task task = mock(Task.class);
+        AbstractTask task = mock(AbstractTask.class);
 
-        processApiActor.tell(new ProcessActor.AddLastTaskCmd(process.getIdentifier(), task), probe.getRef());
+        processApiActor.tell(new ProcessActor.SetTasksToProcessCmd(process.getIdentifier(), task), probe.getRef());
         probe.expectMsgClass(ProcessActor.SuccessCommand.class);
 
     }
@@ -79,9 +79,9 @@ public class ProcessActorTest {
 
         val processApiActor = system.actorOf(ProcessActor.props(repository), "process-api");
 
-        Task task = mock(Task.class);
+        AbstractTask task = mock(AbstractTask.class);
 
-        processApiActor.tell(new ProcessActor.AddLastTaskCmd(process.getIdentifier(), task), probe.getRef());
+        processApiActor.tell(new ProcessActor.SetTasksToProcessCmd(process.getIdentifier(), task), probe.getRef());
         ProcessActor.CommandException commandException = probe.expectMsgClass(
                 FiniteDuration.apply(6, TimeUnit.SECONDS),
                 ProcessActor.CommandException.class
@@ -108,9 +108,9 @@ public class ProcessActorTest {
 
         val processApiActor = system.actorOf(ProcessActor.props(repository), "process-api");
 
-        Task task = mock(Task.class);
+        AbstractTask task = mock(AbstractTask.class);
 
-        processApiActor.tell(new ProcessActor.AddLastTaskCmd(process.getIdentifier(), task), probe.getRef());
+        processApiActor.tell(new ProcessActor.SetTasksToProcessCmd(process.getIdentifier(), task), probe.getRef());
         ProcessActor.CommandException commandException = probe.expectMsgClass(
                 FiniteDuration.apply(3, TimeUnit.SECONDS),
                 ProcessActor.CommandException.class

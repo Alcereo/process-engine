@@ -170,7 +170,7 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
                         taskDataState1 ->
                                 getContext()
                                         .getParent()
-                                        .tell(new SuccessExecutedEvt(taskIdentifier), getSelf())
+                                        .tell(new SuccessExecutedEvt(taskIdentifier, taskDataState.getProperties()), getSelf())
                 ));
     }
 
@@ -182,7 +182,8 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
                         getContext().getParent().tell(
                                 new ExecutedWithErrorsEvt(
                                         taskIdentifier,
-                                        cmd.getError()
+                                        cmd.getError(),
+                                        taskDataState.getProperties()
                                 ), getSelf())
                 ));
     }
@@ -297,12 +298,14 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
     @Value
     public static final class SuccessExecutedEvt implements TaskEvents{
         UUID taskUid;
+        Map<String, Object> properties;
     }
 
     @Value
     public static final class ExecutedWithErrorsEvt implements TaskEvents{
         UUID taskUid;
         Throwable error;
+        Map<String, Object> properties;
     }
 
     @Value

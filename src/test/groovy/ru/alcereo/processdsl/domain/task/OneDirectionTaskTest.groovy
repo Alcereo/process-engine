@@ -5,7 +5,7 @@ import static org.mockito.Mockito.mock
 class OneDirectionTaskTest extends GroovyTestCase {
 
 
-    void testOneWayTask(){
+    void testOneWayTaskExchangeContext(){
 
         def value1 = UUID.randomUUID().toString()
         def value2 = UUID.randomUUID().toString()
