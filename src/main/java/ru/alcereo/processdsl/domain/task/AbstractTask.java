@@ -27,8 +27,24 @@ public abstract class AbstractTask implements Serializable {
     protected TaskActorType type;
 
 
-    public abstract void acceptDataToStart(final TaskResult previousTaskResult,
-                                           final Map<String, Object> parentContext);
+    public void acceptDataToStart(TaskResult previousTaskResult, Map<String, Object> parentContext) {
+        val properties = getProperties();
+        Map<String, Object> resultProperties = previousTaskResult.getResultProperties();
+
+        for (PropertiesExchangeData.PropMappingData propTuple : getPropertiesExchangeData().getInnerPropsFromLastOutput()) {
+            properties.put(
+                    propTuple.getInnerProp(),
+                    resultProperties.get(propTuple.getOuterProp())
+            );
+        }
+
+        for (PropertiesExchangeData.PropMappingData propTuple : getPropertiesExchangeData().getInnerPropsFromContext()) {
+            properties.put(
+                    propTuple.getInnerProp(),
+                    parentContext.get(propTuple.getOuterProp())
+            );
+        }
+    }
 
     public abstract AbstractTask getNextTaskByResult(final TaskResult result);
 
@@ -40,6 +56,7 @@ public abstract class AbstractTask implements Serializable {
 
     public interface TaskResult{
         boolean isSuccess();
+        UUID getIdentifier();
         Map<String, Object> getResultProperties();
     }
 

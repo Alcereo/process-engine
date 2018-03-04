@@ -58,12 +58,12 @@ public class BusinessProcess implements Serializable{
         return finderTask[0] != null;
     }
 
-    public void acceptCurrentTaskResult(AbstractTask.SuccessTaskResult result) throws AcceptResultOnFinish {
+    public void acceptCurrentTaskResult(AbstractTask.TaskResult result) throws AcceptResultOnFinishException {
         if (!result.getIdentifier().equals(currentTask.getIdentifier()))
             throw new RuntimeException("Result not belong to current task");
 
         if (this.isFinished)
-            throw new AcceptResultOnFinish();
+            throw new AcceptResultOnFinishException();
 
         AbstractTask nextTaskByResult = currentTask.getNextTaskByResult(result);
 
@@ -81,11 +81,6 @@ public class BusinessProcess implements Serializable{
     public boolean isFinished() {
         return this.isFinished;
     }
-
-
-    /**========================================*
-     *         EVENTS SOURCED HANDLERS         *
-     *=========================================*/
 
     /**========================================*
      *                EVENTS                   *
