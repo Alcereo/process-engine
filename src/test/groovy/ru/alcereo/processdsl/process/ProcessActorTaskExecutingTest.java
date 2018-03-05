@@ -31,7 +31,6 @@ import scala.concurrent.Future;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -161,8 +160,8 @@ public class ProcessActorTaskExecutingTest {
         AbstractTask secondTask = OneDirectionTask.builder()
                 .identifier(secondTaskUuid)
                 .properties(new HashMap<>())
-                .taskList(
-                        Collections.singletonList(successFinishTask)
+                .nextTask(
+                        successFinishTask
                 ).propertiesExchangeData(
                         PropertiesExchangeData.builder()
                                 .addInnerPropsFromContext("text-to-print", processResponsePropName)
@@ -179,8 +178,8 @@ public class ProcessActorTaskExecutingTest {
                                 .addInnerPropsFromContext("address", processAddressPropName)
                                 .addOuterPropsToContext("http-response", processResponsePropName)
                                 .build()
-                ).taskList(
-                        Collections.singletonList(secondTask)
+                ).nextTask(
+                        secondTask
                 ).type(
                         () -> RestSyncTask.props(firstTaskUuid,new OkHttpClient())
                 ).build();

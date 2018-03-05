@@ -36,7 +36,7 @@ class OneDirectionTaskTest extends GroovyTestCase {
                 .identifier(taskUid)
                 .properties([prop3:value1])
                 .propertiesExchangeData(propertiesExchangeData)
-                .taskList([nextTaskMock])
+                .nextTask(nextTaskMock)
                 .type({ -> null })
                 .build()
 

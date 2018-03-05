@@ -229,7 +229,7 @@ class BusinessProcessTest extends GroovyTestCase {
                 .identifier(taskUid)
                 .properties([:])
                 .propertiesExchangeData(propertiesExchangeData)
-                .taskList([nextTask])
+                .nextTask(nextTask)
                 .type({ -> null })
                 .build()
     }
