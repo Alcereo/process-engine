@@ -1,0 +1,39 @@
+<configuration debug="false">
+
+
+    <!-- application console log (for errors and warnings) -->
+    <appender name="ASYNC_STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <pattern>%date %level %logger{20} %msg%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+    </appender>
+
+
+    <!-- application console log -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.out</target>
+        <encoder>
+            <pattern>%date %level %logger{20} %msg%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
+            <evaluator>
+                <!--<expression>level &gt;= INFO &amp;&amp; level &lt; WARN</expression>-->
+                <expression>level &lt; WARN</expression>
+            </evaluator>
+            <OnMismatch>DENY</OnMismatch>
+            <OnMatch>NEUTRAL</OnMatch>
+        </filter>
+    </appender>
+
+    <logger name="org.mockserver" level="INFO"/>
+    <!--<logger name="io.netty.handler.ssl.SslHandler" level="WARN"/>-->
+
+    <root level="WARN">
+        <appender-ref ref="ASYNC_STDERR"/>
+        <!--<appender-ref ref="ASYNC_STDOUT"/>-->
+    </root>
+</configuration>
