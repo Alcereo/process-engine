@@ -57,7 +57,7 @@ public class ProcessActorTestWithRepository {
 
 //        ----
 
-        val processApiActor = system.actorOf(ProcessActor.props(repository), "process-api");
+        val processApiActor = system.actorOf(ProcessActor.props((system1, actorName) -> repository), "process-api");
 
         AbstractTask task = mock(AbstractTask.class);
 
@@ -77,7 +77,7 @@ public class ProcessActorTestWithRepository {
 
 //        ----
 
-        val processApiActor = system.actorOf(ProcessActor.props(repository), "process-api");
+        val processApiActor = system.actorOf(ProcessActor.props((system1, actorName) -> repository), "process-api");
 
         AbstractTask task = mock(AbstractTask.class);
 
@@ -106,7 +106,7 @@ public class ProcessActorTestWithRepository {
 
 //        ---
 
-        val processApiActor = system.actorOf(ProcessActor.props(repository), "process-api");
+        val processApiActor = system.actorOf(ProcessActor.props((system1, actorName) -> repository), "process-api");
 
         AbstractTask task = mock(AbstractTask.class);
 

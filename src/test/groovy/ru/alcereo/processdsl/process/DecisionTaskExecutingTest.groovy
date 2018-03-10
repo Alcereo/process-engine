@@ -37,8 +37,12 @@ class DecisionTaskExecutingTest extends GroovyTestCase {
 
     void decisionTestCase(boolean successCase){
 
-        def repository = Props.create(ProcessInMemoryRepository.class)
-        def processApiActor = system.actorOf(ProcessActor.props(repository), "process-api")
+        def processApiActor = system.actorOf(ProcessActor.props({
+            parentSystem, name ->
+                parentSystem.actorOf(
+                        Props.create(ProcessInMemoryRepository.class),
+                        name)
+        }), "process-api")
         def probe = new TestKit(system)
         def observerProbe = new TestKit(system)
 

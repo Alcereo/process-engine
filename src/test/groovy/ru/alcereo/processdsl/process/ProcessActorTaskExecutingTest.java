@@ -75,8 +75,13 @@ public class ProcessActorTaskExecutingTest {
     @SuppressWarnings("unchecked")
     public void testProcessStart() throws InterruptedException {
 
-        val repository = Props.create(ProcessInMemoryRepository.class);
-        val processApiActor = system.actorOf(ProcessActor.props(repository), "process-api");
+        val processApiActor = system.actorOf(
+                ProcessActor.props(
+                        (system1, actorName) ->
+                                system1.actorOf(
+                                        Props.create(ProcessInMemoryRepository.class),
+                                        actorName)
+                ), "process-api");
         val probe = new TestKit(system);
         val observerProbe = new TestKit(system);
 

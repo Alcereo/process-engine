@@ -69,7 +69,7 @@ public class RestSyncTaskActorTest {
 
 
     @Test
-    public void restRequestTest() throws InterruptedException {
+    public void restSuccessfulRequestTest() throws InterruptedException {
 
         TestKit probe = new TestKit(system);
         ActorRef taskActor = probe.childActorOf(RestSyncTaskActor.props(UUID.randomUUID(), new OkHttpClient()), "task");
@@ -94,7 +94,7 @@ public class RestSyncTaskActorTest {
 
         System.out.println("---- Finish command execution -----");
 
-        probe.expectMsgClass(PersistFSMTask.SuccessFinishExecutingCmd.class);
+        probe.expectMsgClass(PersistFSMTask.SuccessExecutedEvt.class);
 
         System.out.println("----  Get succesfull message  -----");
 
@@ -147,7 +147,7 @@ public class RestSyncTaskActorTest {
         System.out.println("---- V Finish command execution -----");
         System.out.println("----    Get error message     -----");
 
-        PersistFSMTask.ErrorExecutingCmd errorMsg = probe.expectMsgClass(PersistFSMTask.ErrorExecutingCmd.class);
+        PersistFSMTask.ExecutedWithErrorsEvt errorMsg = probe.expectMsgClass(PersistFSMTask.ExecutedWithErrorsEvt.class);
 
         assertTrue(
                 "Исключение не заполнено",
