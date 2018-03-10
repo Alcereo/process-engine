@@ -26,4 +26,6 @@ public abstract class ProcessResultTask extends AbstractTask {
     public void forEachTask(Consumer<AbstractTask> consumer) {
         consumer.accept(this);
     }
+
+    public abstract boolean isSuccess();
 }

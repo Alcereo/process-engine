@@ -20,6 +20,7 @@ public class BusinessProcess implements Serializable{
 
     Map<String, Object> processContext;
     private boolean isFinished = false;
+    private boolean isSuccess = false;
 
     @Builder
     public BusinessProcess(@NonNull UUID identifier,
@@ -74,9 +75,10 @@ public class BusinessProcess implements Serializable{
 
         AbstractTask nextTaskByResult = currentTask.getNextTaskByResult(result);
 
-        if (nextTaskByResult instanceof ProcessResultTask)
+        if (nextTaskByResult instanceof ProcessResultTask) {
             this.isFinished = true;
-        else
+            isSuccess = ((ProcessResultTask) nextTaskByResult).isSuccess();
+        }else
             nextTaskByResult.acceptDataToStart(
                     result,
                     getProcessContext()
@@ -141,6 +143,7 @@ public class BusinessProcess implements Serializable{
     @Value
     public static class ProcessFinishedEvt implements BusinessEvent {
         UUID uuid;
+        boolean isSuccess;
     }
 
 }

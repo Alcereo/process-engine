@@ -21,4 +21,9 @@ public class ProcessFailureResultTask extends ProcessResultTask {
                         .build(),
                 () -> null);
     }
+
+    @Override
+    public boolean isSuccess() {
+        return false;
+    }
 }

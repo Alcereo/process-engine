@@ -306,8 +306,10 @@ public class ProcessActor extends AbstractLoggingActor {
                             observers.forEach(
                                     actorRef ->
                                             actorRef.tell(
-                                                    new BusinessProcess.ProcessFinishedEvt(process.getIdentifier()),
-                                                    getSelf()
+                                                    new BusinessProcess.ProcessFinishedEvt(
+                                                            process.getIdentifier(),
+                                                            process.isSuccess()
+                                                    ), getSelf()
                                             )
                             );
                             return Futures.successful("Process finished");
