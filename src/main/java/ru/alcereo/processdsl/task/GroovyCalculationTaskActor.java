@@ -11,6 +11,7 @@ import org.codehaus.groovy.control.CompilerConfiguration;
 import ru.alcereo.processdsl.domain.TaskActorType;
 import scala.concurrent.Future;
 
+import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -32,7 +33,7 @@ public class GroovyCalculationTaskActor extends PersistFSMTask {
             String script = (String)scriptObject;
 
             Binding binding = new Binding();
-            binding.setVariable("context", taskStateData.getProperties());
+            binding.setVariable("context", new HashMap<>(taskStateData.getProperties()));
 
             CompilerConfiguration config = new CompilerConfiguration();
 
@@ -40,28 +41,36 @@ public class GroovyCalculationTaskActor extends PersistFSMTask {
 
             Future<Object> executionFuture = Futures.future(() -> shell.evaluate(script), ds);
 
-            executionFuture.flatMap(result -> {
-                log().debug("Send executing finish command to self()");
-                return Patterns.ask(
-                        getSelf(),
-                        new SuccessFinishExecutingCmd(),
-                        Timeout.apply(5, TimeUnit.SECONDS)
-                );
-
-            }, ds).onFailure(
-                    failure(throwable -> {
-                        log().error(throwable, "Error execution task!!");
-
-                        Patterns.ask(
+            executionFuture.map(result -> (HashMap) binding.getProperty("context"), ds)
+                    .map(AppendToContextCmd::new, ds)
+                    .flatMap(appendToContextCmd -> {
+                        log().debug("Append response to context: {}", appendToContextCmd);
+                        return Patterns.ask(
                                 getSelf(),
-                                new ErrorExecutingCmd(throwable),
-                                Timeout.apply(5, TimeUnit.SECONDS)
-                        ).onFailure(
-                                failure(throwable1 -> {
-                                    throw new RuntimeException("Error execution!!");
-                                }), ds
-                        );
-                    }), ds);
+                                appendToContextCmd,
+                                Timeout.apply(5, TimeUnit.SECONDS));
+                    }, ds)
+                    .flatMap(result -> {
+                        log().debug("Send executing finish command to self()");
+                        return Patterns.ask(
+                                getSelf(),
+                                new SuccessFinishExecutingCmd(),
+                                Timeout.apply(5, TimeUnit.SECONDS));
+                    }, ds)
+                    .onFailure(
+                            failure(throwable -> {
+                                log().error(throwable, "Error execution task!!");
+
+                                Patterns.ask(
+                                        getSelf(),
+                                        new ErrorExecutingCmd(throwable),
+                                        Timeout.apply(5, TimeUnit.SECONDS)
+                                ).onFailure(
+                                        failure(throwable1 -> {
+                                            throw new RuntimeException("Error execution!!");
+                                        }), ds
+                                );
+                            }), ds);
 
         }else {
             Patterns.ask(

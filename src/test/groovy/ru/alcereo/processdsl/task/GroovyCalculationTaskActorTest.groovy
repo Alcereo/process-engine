@@ -56,4 +56,63 @@ class GroovyCalculationTaskActorTest extends ActorSystemInitializerTest {
 
     }
 
+    void testContextSet(){
+
+        TestKit probe = new TestKit(system)
+        UUID taskUuid = UUID.randomUUID()
+
+        ActorRef taskActor = probe.childActorOf(
+                Props.create(GroovyCalculationTaskActor.class, { -> new GroovyCalculationTaskActor(taskUuid)})
+                , "task")
+
+        System.out.println("----    Start append context   -----")
+
+        String script = """
+
+            def numbers = context.get("numbers")
+            context.put("result", numbers.sum())
+        """
+
+        def integers = [1, 2, 3, 4]
+        taskActor.tell(
+                new PersistFSMTask.AppendToContextCmd(
+                        [
+                                "script-property":script,
+                                "numbers": integers
+                        ]
+                ),
+                probe.getRef())
+        probe.expectMsgClass(PersistFSMTask.CmdSuccess.class)
+
+
+        System.out.println("----   Append context finish   -----")
+        System.out.println("----       Start execution     -----")
+
+        taskActor.tell(
+                new PersistFSMTask.StartExecutingCmd(),
+                probe.getRef()
+        )
+        probe.expectMsgClass(PersistFSMTask.CmdSuccess.class)
+
+        System.out.println("---- Finish command execution -----")
+
+        probe.expectMsgClass(PersistFSMTask.SuccessExecutedEvt.class)
+
+        System.out.println("----  Get succesfull message  -----")
+
+        taskActor.tell(
+                new PersistFSMTask.GetStateDataQuery(),
+                probe.getRef()
+        )
+        def resultTaskDataState = probe.expectMsgClass(PersistFSMTask.TaskDataState.class)
+
+        System.out.println("----  Get data with context   -----")
+
+        assertEquals(
+                integers.sum(),
+                resultTaskDataState.properties.get("result")
+        )
+
+    }
+
 }
