@@ -2,6 +2,7 @@ package ru.alcereo.processdsl.task
 
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
+import groovy.transform.NotYetImplemented
 import org.junit.After
 import org.junit.Before
 
@@ -50,7 +51,10 @@ class PersistFSMTaskTest extends GroovyTestCase {
 //            println " -- PREPARED: ${taskStateData.properties.get('text')} -- "
 //        }
 //    }
-//
+
+    @NotYetImplemented
+    void testPersisActor(){}
+
 //    void testPersisActor(){
 //        def taskActor = system.actorOf(
 //                PrintTaskActor.props("actor-persist-id"),

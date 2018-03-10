@@ -2,6 +2,7 @@ package ru.alcereo.processdsl.process
 
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
+import groovy.transform.NotYetImplemented
 import org.junit.After
 import org.junit.Before
 
@@ -431,10 +432,10 @@ class BusinessProcessActorTest extends GroovyTestCase {
 //        probe.expectMsg(State.RECOVERING_ERROR)
 //
 //    }
-//
-//    @NotYetImplemented
-//    void testChildKillStrategy(){}
-//
+
+    @NotYetImplemented
+    void testChildKillStrategy(){}
+
 //    void testSettingProcessContext(){
 //
 //        def process = system.actorOf(props("persistent-process-1"), "process-1")

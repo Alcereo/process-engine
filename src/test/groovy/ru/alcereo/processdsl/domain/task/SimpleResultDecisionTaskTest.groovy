@@ -22,8 +22,8 @@ class SimpleResultDecisionTaskTest extends GroovyTestCase {
                 .identifier(UUID.randomUUID())
                 .properties([:])
                 .propertiesExchangeData(propertiesExchangeData)
-                .taskList([successTaskMock, failureTaskMock])
-                .type({ -> null })
+                .successResultTask(successTaskMock)
+                .failureResultTask(failureTaskMock)
                 .build()
 
 
