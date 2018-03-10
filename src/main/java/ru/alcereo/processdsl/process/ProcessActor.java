@@ -61,7 +61,7 @@ public class ProcessActor extends AbstractLoggingActor {
         return receiveBuilder()
 //                Commands
                 .match(CreateNewProcessCmd.class,               this::handleCommand)
-                .match(SetTasksToProcessCmd.class,                    this::handleCommand)
+                .match(SetTasksToProcessCmd.class,              this::handleCommand)
                 .match(StartProcessCmd.class,                   this::handleCommand)
 //                Events
                 .match(PersistFSMTask.SuccessExecutedEvt.class,     this::handleEvent)

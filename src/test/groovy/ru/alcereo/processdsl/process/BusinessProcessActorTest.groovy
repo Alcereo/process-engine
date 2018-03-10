@@ -27,6 +27,9 @@ class BusinessProcessActorTest extends GroovyTestCase {
 
     }
 
+    //TODO тест на таски и десижн таски
+
+
 //    static class PrintTaskActor extends PersistFSMTask{
 //
 //        final String fieldToPrint
