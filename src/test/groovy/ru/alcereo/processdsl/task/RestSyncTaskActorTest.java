@@ -29,7 +29,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class RestSyncTaskTest {
+public class RestSyncTaskActorTest {
 
     private ActorSystem system;
 
@@ -72,7 +72,7 @@ public class RestSyncTaskTest {
     public void restRequestTest() throws InterruptedException {
 
         TestKit probe = new TestKit(system);
-        ActorRef taskActor = probe.childActorOf(RestSyncTask.props(UUID.randomUUID(), new OkHttpClient()), "task");
+        ActorRef taskActor = probe.childActorOf(RestSyncTaskActor.props(UUID.randomUUID(), new OkHttpClient()), "task");
 
         System.out.println("----    Start append context   -----");
 
@@ -124,7 +124,7 @@ public class RestSyncTaskTest {
         OkHttpClient client = mock(OkHttpClient.class);
         when(client.newCall(any())).thenReturn(call);
 
-        ActorRef taskActor = probe.childActorOf(RestSyncTask.props(UUID.randomUUID(), client), "task");
+        ActorRef taskActor = probe.childActorOf(RestSyncTaskActor.props(UUID.randomUUID(), client), "task");
 
         System.out.println("----    Start append context   -----");
 

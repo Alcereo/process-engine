@@ -17,15 +17,15 @@ import java.util.concurrent.TimeUnit;
 
 import static ru.alcereo.processdsl.Utils.failure;
 
-public class RestSyncTask extends PersistFSMTask{
+public class RestSyncTaskActor extends PersistFSMTask{
 
     private OkHttpClient client;
 
     public static Props props(UUID taskIdentifier, OkHttpClient client){
-        return Props.create(RestSyncTask.class, () -> new RestSyncTask(taskIdentifier, client));
+        return Props.create(RestSyncTaskActor.class, () -> new RestSyncTaskActor(taskIdentifier, client));
     }
 
-    public RestSyncTask(UUID taskIdentifier, OkHttpClient client) {
+    public RestSyncTaskActor(UUID taskIdentifier, OkHttpClient client) {
         super(taskIdentifier);
         this.client = client;
     }

@@ -1,11 +1,8 @@
 package ru.alcereo.processdsl.process;
 
-import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
-import akka.pattern.Patterns;
 import akka.testkit.javadsl.TestKit;
-import akka.util.Timeout;
 import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
 import lombok.val;
@@ -19,24 +16,20 @@ import org.mockserver.mockserver.MockServerBuilder;
 import org.mockserver.model.HttpRequest;
 import org.mockserver.model.HttpResponse;
 import ru.alcereo.processdsl.domain.BusinessProcess;
-import ru.alcereo.processdsl.domain.TaskActorType;
 import ru.alcereo.processdsl.domain.task.AbstractTask;
 import ru.alcereo.processdsl.domain.task.OneDirectionTask;
 import ru.alcereo.processdsl.domain.task.ProcessSuccessResultTask;
 import ru.alcereo.processdsl.domain.task.PropertiesExchangeData;
-import ru.alcereo.processdsl.task.PersistFSMTask;
-import ru.alcereo.processdsl.task.RestSyncTask;
-import scala.concurrent.ExecutionContext;
-import scala.concurrent.Future;
+import ru.alcereo.processdsl.task.RestSyncTaskActor;
+import ru.alcereo.processdsl.task.TestPrintTaskActor;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import static org.codehaus.groovy.runtime.NioGroovyMethods.deleteDir;
-import static ru.alcereo.processdsl.Utils.failure;
+
 
 public class ProcessActorTaskExecutingTest {
 
@@ -75,64 +68,6 @@ public class ProcessActorTaskExecutingTest {
         deleteDir(path);
 
         mockServer.stop().get();
-    }
-
-
-    private static class TestPrintTaskActor extends PersistFSMTask{
-
-        private final String propertyToPrint;
-
-        public TestPrintTaskActor(UUID taskIdentifier, String propertyToPrint) {
-            super(taskIdentifier);
-            this.propertyToPrint = propertyToPrint;
-        }
-
-        public static TaskActorType getType(UUID taskIdentifier, String propertyToPrint){
-            return () -> Props.create(
-                    TestPrintTaskActor.class,
-                    () -> new TestPrintTaskActor(taskIdentifier, propertyToPrint)
-            );
-        }
-
-        @Override
-        public void handleExecution(TaskDataState taskStateData) {
-
-            ActorRef initSender = getSender();
-
-            System.out.println("=============================================");
-            System.out.println("=================PRINT-ACTOR=================");
-            System.out.println();
-
-            System.out.println(taskStateData.getProperties().get(propertyToPrint));
-
-            System.out.println();
-            System.out.println("=============================================");
-            System.out.println("=============================================");
-
-            ExecutionContext ds = getContext().dispatcher();
-
-            Future<Object> sendSuccessF = Patterns.ask(
-                    getSelf(),
-                    new SuccessFinishExecutingCmd(),
-                    Timeout.apply(3, TimeUnit.SECONDS)
-            );
-
-            sendSuccessF.onFailure(
-                    failure(throwable -> {
-                        log().error(throwable, "Error execution task!!");
-
-                        Patterns.ask(
-                                getSelf(),
-                                new ErrorExecutingCmd(throwable),
-                                Timeout.apply(5, TimeUnit.SECONDS)
-                        ).onFailure(
-                                failure(throwable1 -> {
-                                    throw new RuntimeException("Error execution!!");
-                                }), ds
-                        );
-                    }), ds);
-
-        }
     }
 
 
@@ -181,7 +116,7 @@ public class ProcessActorTaskExecutingTest {
                 ).nextTask(
                         secondTask
                 ).type(
-                        () -> RestSyncTask.props(firstTaskUuid,new OkHttpClient())
+                        () -> RestSyncTaskActor.props(firstTaskUuid,new OkHttpClient())
                 ).build();
 
 

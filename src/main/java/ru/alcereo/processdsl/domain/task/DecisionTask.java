@@ -19,10 +19,9 @@ public abstract class DecisionTask extends AbstractTask {
     protected DecisionTask(UUID identifier,
                            Map<String, Object> properties,
                            PropertiesExchangeData propertiesExchangeData,
-                           TaskActorType type,
                            @NonNull List<AbstractTask> taskList) {
 
-        super(identifier, properties, propertiesExchangeData, type);
+        super(identifier, properties, propertiesExchangeData, TaskActorType.emptyTaskType(identifier));
         this.taskList = taskList;
     }
 

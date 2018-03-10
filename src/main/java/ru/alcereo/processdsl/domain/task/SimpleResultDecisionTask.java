@@ -1,8 +1,9 @@
 package ru.alcereo.processdsl.domain.task;
 
 import lombok.Builder;
-import ru.alcereo.processdsl.domain.TaskActorType;
+import lombok.NonNull;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -10,15 +11,12 @@ import java.util.UUID;
 public class SimpleResultDecisionTask extends DecisionTask{
 
     @Builder(builderClassName = "TaskBuilder")
-    private SimpleResultDecisionTask(UUID identifier,
+    private SimpleResultDecisionTask(@NonNull UUID identifier,
                                      Map<String, Object> properties,
                                      PropertiesExchangeData propertiesExchangeData,
-                                     TaskActorType type,
-                                     List<AbstractTask> taskList) {
-        super(identifier, properties, propertiesExchangeData, type, taskList);
-
-        if (taskList.size()!=2)
-            throw new IllegalArgumentException("Task list must have 2 elements in SimpleResultDecisionTask");
+                                     @NonNull AbstractTask successResultTask,
+                                     @NonNull AbstractTask failureResultTask) {
+        super(identifier, properties, propertiesExchangeData, Arrays.asList(successResultTask, failureResultTask));
     }
 
     @Override
