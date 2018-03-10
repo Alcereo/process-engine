@@ -1,5 +1,7 @@
 package ru.alcereo.processdsl;
 
+import akka.actor.AbstractActor;
+import akka.actor.ActorRef;
 import akka.dispatch.OnComplete;
 import akka.dispatch.OnFailure;
 import akka.dispatch.OnSuccess;
@@ -37,5 +39,10 @@ public class Utils {
 
     public interface Consumer2<T,V>{
         void execute(T t, V v);
+    }
+
+    @FunctionalInterface
+    public interface ActorChildWrapper{
+        ActorRef createChild(AbstractActor.ActorContext system, String actorName);
     }
 }

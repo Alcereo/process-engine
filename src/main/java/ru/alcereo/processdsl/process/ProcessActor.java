@@ -10,6 +10,7 @@ import akka.pattern.Patterns;
 import akka.util.Timeout;
 import lombok.Value;
 import lombok.val;
+import ru.alcereo.processdsl.Utils;
 import ru.alcereo.processdsl.domain.AcceptResultOnFinishException;
 import ru.alcereo.processdsl.domain.BusinessProcess;
 import ru.alcereo.processdsl.domain.task.AbstractTask;
@@ -36,24 +37,16 @@ public class ProcessActor extends AbstractLoggingActor {
     private ActorRef processRepository;
     private List<ActorRef> observers = new ArrayList<>();
 
-    //  ProcessInMemoryRepository by props
 
-    public static Props props(Props processRepositoryProp){
-        return Props.create(ProcessActor.class, () -> new ProcessActor(processRepositoryProp));
+    public static Props props(Utils.ActorChildWrapper actorChildWrapper){
+        return Props.create(ProcessActor.class, () -> new ProcessActor(actorChildWrapper));
     }
 
-    private ProcessActor(Props processRepositoryProp) {
-        this.processRepository = getContext().actorOf(processRepositoryProp, "process-repository");
-    }
-
-    //  ProcessInMemoryRepository by actorRef
-
-    public static Props props(ActorRef processRepository){
-        return Props.create(ProcessActor.class, () -> new ProcessActor(processRepository));
-    }
-
-    private ProcessActor(ActorRef processRepository) {
-        this.processRepository = processRepository;
+    private ProcessActor(Utils.ActorChildWrapper actorChildWrapper) {
+        this.processRepository = actorChildWrapper.createChild(
+                getContext(),
+                "process-repository"
+        );
     }
 
     @Override
