@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.task;
+package ru.alcereo.processdsl.write.task;
 
 
 import akka.persistence.fsm.AbstractPersistentFSM;
@@ -12,8 +12,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import static ru.alcereo.processdsl.task.PersistFSMTask.TaskState.ERROR_FINISHED;
-import static ru.alcereo.processdsl.task.PersistFSMTask.TaskState.SUCCESS_FINISHED;
+import static ru.alcereo.processdsl.write.task.PersistFSMTask.TaskState.ERROR_FINISHED;
+import static ru.alcereo.processdsl.write.task.PersistFSMTask.TaskState.SUCCESS_FINISHED;
 
 /**
  * Created by alcereo on 03.01.18.

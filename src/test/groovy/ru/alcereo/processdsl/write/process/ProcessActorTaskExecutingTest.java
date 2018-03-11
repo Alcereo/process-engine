@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.process;
+package ru.alcereo.processdsl.write.process;
 
 import akka.actor.ActorSystem;
 import akka.actor.Props;
@@ -20,8 +20,8 @@ import ru.alcereo.processdsl.domain.task.AbstractTask;
 import ru.alcereo.processdsl.domain.task.OneDirectionTask;
 import ru.alcereo.processdsl.domain.task.ProcessSuccessResultTask;
 import ru.alcereo.processdsl.domain.task.PropertiesExchangeData;
-import ru.alcereo.processdsl.task.RestSyncTaskActor;
-import ru.alcereo.processdsl.task.TestPrintTaskActor;
+import ru.alcereo.processdsl.write.task.RestSyncTaskActor;
+import ru.alcereo.processdsl.write.task.TestPrintTaskActor;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;

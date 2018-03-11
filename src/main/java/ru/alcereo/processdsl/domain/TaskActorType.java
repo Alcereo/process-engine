@@ -1,7 +1,7 @@
 package ru.alcereo.processdsl.domain;
 
 import akka.actor.Props;
-import ru.alcereo.processdsl.task.EmptyTaskActor;
+import ru.alcereo.processdsl.write.task.EmptyTaskActor;
 
 import java.util.UUID;
 

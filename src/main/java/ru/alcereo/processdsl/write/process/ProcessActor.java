@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.process;
+package ru.alcereo.processdsl.write.process;
 
 import akka.actor.AbstractLoggingActor;
 import akka.actor.ActorRef;
@@ -16,7 +16,7 @@ import ru.alcereo.processdsl.Utils;
 import ru.alcereo.processdsl.domain.AcceptResultOnFinishException;
 import ru.alcereo.processdsl.domain.BusinessProcess;
 import ru.alcereo.processdsl.domain.task.AbstractTask;
-import ru.alcereo.processdsl.task.PersistFSMTask;
+import ru.alcereo.processdsl.write.task.PersistFSMTask;
 import scala.concurrent.Future;
 
 import java.io.Serializable;

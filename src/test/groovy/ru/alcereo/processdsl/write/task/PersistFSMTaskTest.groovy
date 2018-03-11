@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.task
+package ru.alcereo.processdsl.write.task
 
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
