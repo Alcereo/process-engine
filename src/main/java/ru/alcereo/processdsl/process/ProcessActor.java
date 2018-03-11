@@ -6,6 +6,8 @@ import akka.actor.Props;
 import akka.dispatch.Futures;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import akka.event.japi.EventBus;
+import akka.event.japi.LookupEventBus;
 import akka.pattern.Patterns;
 import akka.util.Timeout;
 import lombok.Value;
@@ -18,8 +20,6 @@ import ru.alcereo.processdsl.task.PersistFSMTask;
 import scala.concurrent.Future;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -35,8 +35,9 @@ public class ProcessActor extends AbstractLoggingActor {
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
     private ActorRef processRepository;
-    private List<ActorRef> observers = new ArrayList<>();
 
+    private static final String PROCESS_TOPIC = "process";
+    private EventBus<BusinessProcess.BusinessEvent, ActorRef, String> processEventBus;
 
     public static Props props(Utils.ActorChildWrapper actorChildWrapper){
         return Props.create(ProcessActor.class, () -> new ProcessActor(actorChildWrapper));
@@ -47,6 +48,8 @@ public class ProcessActor extends AbstractLoggingActor {
                 getContext(),
                 "process-repository"
         );
+
+        processEventBus = new ProcessEventBus(getSelf());
     }
 
     @Override
@@ -72,15 +75,13 @@ public class ProcessActor extends AbstractLoggingActor {
      *=========================================*/
 
     private void addObserver(AddObserverMsg msg) {
-        this.observers.add(msg.getObserver());
+        processEventBus.subscribe(msg.getObserver(), PROCESS_TOPIC);
         getSender().tell(new SuccessAdded(), getSelf());
     }
 
     private void deleteObserver(DeleteObserver msg) {
-        if (this.observers.remove(msg.getObserver()))
-            getSender().tell(new SuccessDelete(), getSelf());
-        else
-            getSender().tell(new NotFoundOnDelete(), getSelf());
+        processEventBus.unsubscribe(msg.getObserver());
+        getSender().tell(new SuccessDelete(), getSelf());
     }
 
     /**========================================*
@@ -113,11 +114,9 @@ public class ProcessActor extends AbstractLoggingActor {
                 success((Object result) ->{
                     log().debug("Success creating process: {}", result);
                     initSender.tell(new SuccessCommand(), getSelf());
-//                    TODO: Конечно нужно что-то на подобии Event-bus
-                    observers.forEach(actorRef -> actorRef.tell(
-                            new BusinessProcess.ProcessCreatedEvt(cmd.getUuid()),
-                            getSelf()
-                    ));
+                    processEventBus.publish(
+                            new BusinessProcess.ProcessCreatedEvt(cmd.getUuid())
+                    );
                 }),
                 getContext().dispatcher());
 
@@ -167,10 +166,9 @@ public class ProcessActor extends AbstractLoggingActor {
                 success((Object result) ->{
                     log().debug("Success updatig process: {}", result);
                     initSender.tell(new SuccessCommand(), getSelf());
-                    observers.forEach(actorRef -> actorRef.tell(
-                            new BusinessProcess.LastTaskAddedEvt(cmd.getTask()),
-                            getSelf()
-                    ));
+                    processEventBus.publish(
+                            new BusinessProcess.LastTaskAddedEvt(cmd.getTask())
+                    );
                 }),
                 getContext().dispatcher());
 
@@ -244,12 +242,8 @@ public class ProcessActor extends AbstractLoggingActor {
                 success((Object result) ->{
                     log().debug("Success starting process: {}", cmd);
                     initSender.tell(new SuccessCommand(), getSelf());
-                    observers.forEach(
-                            actorRef ->
-                                    actorRef.tell(
-                                            new BusinessProcess.ProcessStartedEvt(cmd.getProcessUid()),
-                                            getSelf()
-                                    )
+                    processEventBus.publish(
+                            new BusinessProcess.ProcessStartedEvt(cmd.getProcessUid())
                     );
                 }),
                 getContext().dispatcher());
@@ -296,14 +290,11 @@ public class ProcessActor extends AbstractLoggingActor {
                         }
 
                         if (process.isFinished()){
-                            observers.forEach(
-                                    actorRef ->
-                                            actorRef.tell(
-                                                    new BusinessProcess.ProcessFinishedEvt(
-                                                            process.getIdentifier(),
-                                                            process.isSuccess()
-                                                    ), getSelf()
-                                            )
+                            processEventBus.publish(
+                                    new BusinessProcess.ProcessFinishedEvt(
+                                            process.getIdentifier(),
+                                            process.isSuccess()
+                                    )
                             );
                             return Futures.successful("Process finished");
                         }else {
@@ -412,6 +403,35 @@ public class ProcessActor extends AbstractLoggingActor {
 
     @Value
     public static class NotFoundOnDelete {
+    }
+
+    private static class ProcessEventBus extends LookupEventBus<BusinessProcess.BusinessEvent, ActorRef, String>{
+
+        private ActorRef parentProcessActor;
+
+        private ProcessEventBus(ActorRef parentProcessActor) {
+            this.parentProcessActor = parentProcessActor;
+        }
+
+        @Override
+        public int mapSize() {
+            return 128;
+        }
+
+        @Override
+        public int compareSubscribers(ActorRef a, ActorRef b) {
+            return a.compareTo(b);
+        }
+
+        @Override
+        public String classify(BusinessProcess.BusinessEvent event) {
+            return PROCESS_TOPIC;
+        }
+
+        @Override
+        public void publish(BusinessProcess.BusinessEvent event, ActorRef subscriber) {
+            subscriber.tell(event, parentProcessActor);
+        }
     }
 
 }
