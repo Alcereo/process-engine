@@ -78,30 +78,36 @@ public abstract class PersistFSMTask extends AbstractPersistentFSM<PersistFSMTas
         startWith(TaskState.NEW, TaskDataState.buildEmpty());
 
         when(TaskState.NEW,
-                matchEvent(SetContextCmd.class,             this::handleCommand)    // Command ===
-                    .event(AppendToContextCmd.class,        this::handleCommand)    // Command ===
-                    .event(StartExecutingCmd.class,         this::handleCommand)    // Command ===
-                    .event(GetStateDataQuery.class,         this::handleQuery)      // Query   ---
-                    .event(GetTaskStateQuery.class,         this::handleQuery)      // Query   ---
+                // Command
+                matchEvent(SetContextCmd.class,             this::handleCommand)
+                    .event(AppendToContextCmd.class,        this::handleCommand)
+                    .event(StartExecutingCmd.class,         this::handleCommand)
+                // Query
+                    .event(GetStateDataQuery.class,         this::handleQuery)
+                    .event(GetTaskStateQuery.class,         this::handleQuery)
         );
 
         when(TaskState.EXECUTED,
-                matchEvent(SuccessFinishExecutingCmd.class, this::handleCommand)    // Command ===
-                    .event(ErrorExecutingCmd.class,         this::handleCommand)    // Command ===
-                    .event(AppendToContextCmd.class,        this::handleCommand)    // Command ===
-                    .event(SetContextCmd.class,             this::handleCommand)    // Command ===
-                    .event(GetStateDataQuery.class,         this::handleQuery)      // Query   ---
-                    .event(GetTaskStateQuery.class,         this::handleQuery)      // Query   ---
+                // Command
+                matchEvent(SuccessFinishExecutingCmd.class, this::handleCommand)
+                    .event(ErrorExecutingCmd.class,         this::handleCommand)
+                    .event(AppendToContextCmd.class,        this::handleCommand)
+                    .event(SetContextCmd.class,             this::handleCommand)
+                // Query
+                    .event(GetStateDataQuery.class,         this::handleQuery)
+                    .event(GetTaskStateQuery.class,         this::handleQuery)
         );
 
         when(SUCCESS_FINISHED,
-                matchEvent(GetStateDataQuery.class,         this::handleQuery)      // Query   ---
-                    .event(GetTaskStateQuery.class,         this::handleQuery)      // Query   ---
+                // Query
+                matchEvent(GetStateDataQuery.class,         this::handleQuery)
+                    .event(GetTaskStateQuery.class,         this::handleQuery)
         );
 
         when(ERROR_FINISHED,
-                matchEvent(GetStateDataQuery.class,         this::handleQuery)      // Query   ---
-                    .event(GetTaskStateQuery.class,         this::handleQuery)      // Query   ---
+                // Query
+                matchEvent(GetStateDataQuery.class,         this::handleQuery)
+                    .event(GetTaskStateQuery.class,         this::handleQuery)
         );
 
     }
