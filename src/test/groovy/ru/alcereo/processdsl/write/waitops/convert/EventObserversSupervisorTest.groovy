@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.write.waitops
+package ru.alcereo.processdsl.write.waitops.convert
 
 import akka.actor.ActorRef
 import akka.actor.Kill

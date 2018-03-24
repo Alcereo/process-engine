@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.write.waitops
+package ru.alcereo.processdsl.write.waitops.convert
 
 import akka.actor.ActorRef
 import akka.actor.OneForOneStrategy
@@ -6,6 +6,9 @@ import akka.actor.SupervisorStrategy
 import akka.japi.pf.DeciderBuilder
 import akka.testkit.javadsl.TestKit
 import ru.alcereo.processdsl.ActorSystemInitializerTest
+import ru.alcereo.processdsl.write.waitops.convert.AbstractMessageEventObserver
+import ru.alcereo.processdsl.write.waitops.convert.DeviceStateErrorMessageObserver
+import ru.alcereo.processdsl.write.waitops.convert.MessageDeserializer
 
 class DeviceStateErrorMessageObserverTest extends ActorSystemInitializerTest {
 
