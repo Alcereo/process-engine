@@ -1,8 +1,11 @@
 package ru.alcereo.processdsl.write.waitops;
 
 import akka.actor.AbstractLoggingActor;
+import akka.actor.ActorRef;
 import akka.event.LoggingReceive;
-import akka.routing.Router;
+import lombok.Getter;
+
+import java.util.Objects;
 
 
 /**
@@ -13,10 +16,10 @@ import akka.routing.Router;
  */
 public abstract class AbstractMessageEventObserver<T> extends AbstractLoggingActor{
 
-    private final Router dispatcherRouter;
+    private final ActorRef dispatcherRouter;
 
-    public AbstractMessageEventObserver(Router dispatcherRouter) {
-        this.dispatcherRouter = dispatcherRouter;
+    public AbstractMessageEventObserver(ActorRef dispatcherRouter) {
+        this.dispatcherRouter = Objects.requireNonNull(dispatcherRouter);
     }
 
     @Override
@@ -36,7 +39,7 @@ public abstract class AbstractMessageEventObserver<T> extends AbstractLoggingAct
         T response = respondMessage(message);
 
         if (response!=null)
-            dispatcherRouter.route(response, getSelf());
+            dispatcherRouter.tell(response, getSelf());
     }
 
     abstract T respondMessage(MessageDeserializer.StateChangeMessage message);
@@ -44,12 +47,12 @@ public abstract class AbstractMessageEventObserver<T> extends AbstractLoggingAct
 
     public static class MessageUnsupportedException extends Exception {
 
-        private Object object;
+        @Getter
+        private Object messageObject;
 
-        public MessageUnsupportedException(Object object) {
-            super("Unsupported message, class: "+object.getClass().getName());
-            this.object = object;
+        public MessageUnsupportedException(Object messageObject) {
+            super("Unsupported message, class: "+ messageObject.getClass().getName());
+            this.messageObject = messageObject;
         }
-
     }
 }

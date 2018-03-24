@@ -4,22 +4,17 @@ import akka.actor.ActorRef
 import akka.actor.OneForOneStrategy
 import akka.actor.SupervisorStrategy
 import akka.japi.pf.DeciderBuilder
-import akka.routing.RoundRobinRoutingLogic
-import akka.routing.Router
 import akka.testkit.javadsl.TestKit
 import ru.alcereo.processdsl.ActorSystemInitializerTest
 
-class AbstractMessageEventObserverTest extends ActorSystemInitializerTest {
+class DeviceStateFineMessageObserverTest extends ActorSystemInitializerTest {
 
     void testDeviceStateFineMessage() {
 
         def prop = new TestKit(system)
 
-        def router = new Router(new RoundRobinRoutingLogic())
-                .addRoutee(prop.getRef())
-
         def deviceObserver = system.actorOf(
-                DeviceStateFineMessageObserver.props(router),
+                DeviceStateFineMessageObserver.props(prop.getRef()),
                 "device-state-fine-observer"
         )
 
@@ -45,11 +40,8 @@ class AbstractMessageEventObserverTest extends ActorSystemInitializerTest {
 
         def prop = new TestKit(system)
 
-        def router = new Router(new RoundRobinRoutingLogic())
-                .addRoutee(prop.getRef())
-
         def deviceObserver = system.actorOf(
-                DeviceStateFineMessageObserver.props(router),
+                DeviceStateFineMessageObserver.props(prop.getRef()),
                 "device-state-fine-observer"
         )
 
@@ -71,7 +63,7 @@ class AbstractMessageEventObserverTest extends ActorSystemInitializerTest {
         def propSupervisor = new TestKit(getSystem())
 
         ActorRef messageObserverActor = propSupervisor.childActorOf(
-                DeviceStateFineMessageObserver.props(new Router(new RoundRobinRoutingLogic())),
+                DeviceStateFineMessageObserver.props(new TestKit(system).getRef()),
                 "message-observer",
                 new OneForOneStrategy(
                         DeciderBuilder.matchAny({ e ->

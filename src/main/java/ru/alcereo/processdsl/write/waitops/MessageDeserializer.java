@@ -89,9 +89,12 @@ public class MessageDeserializer extends AbstractLoggingActor{
     @Value
     @Builder
     public static class StateChangeMessage{
+        @NonNull
         UUID id;
+        @NonNull
         String atmId;
         String description;
+        @NonNull
         String state;
     }
 

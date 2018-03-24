@@ -4,8 +4,6 @@ import akka.actor.ActorRef
 import akka.actor.OneForOneStrategy
 import akka.actor.SupervisorStrategy
 import akka.japi.pf.DeciderBuilder
-import akka.routing.RoundRobinRoutingLogic
-import akka.routing.Router
 import akka.testkit.javadsl.TestKit
 import ru.alcereo.processdsl.ActorSystemInitializerTest
 
@@ -15,11 +13,8 @@ class DeviceStateErrorMessageObserverTest extends ActorSystemInitializerTest {
 
         def prop = new TestKit(system)
 
-        def router = new Router(new RoundRobinRoutingLogic())
-                .addRoutee(prop.getRef())
-
         def deviceObserver = system.actorOf(
-                DeviceStateErrorMessageObserver.props(router),
+                DeviceStateErrorMessageObserver.props(prop.getRef()),
                 "device-state-error-observer"
         )
 
@@ -45,11 +40,8 @@ class DeviceStateErrorMessageObserverTest extends ActorSystemInitializerTest {
 
         def prop = new TestKit(system)
 
-        def router = new Router(new RoundRobinRoutingLogic())
-                .addRoutee(prop.getRef())
-
         def deviceObserver = system.actorOf(
-                DeviceStateErrorMessageObserver.props(router),
+                DeviceStateErrorMessageObserver.props(prop.getRef()),
                 "device-state-error-observer"
         )
 
@@ -71,7 +63,7 @@ class DeviceStateErrorMessageObserverTest extends ActorSystemInitializerTest {
         def propSupervisor = new TestKit(getSystem())
 
         ActorRef messageObserverActor = propSupervisor.childActorOf(
-                DeviceStateErrorMessageObserver.props(new Router(new RoundRobinRoutingLogic())),
+                DeviceStateErrorMessageObserver.props(new TestKit(system).getRef()),
                 "message-observer",
                 new OneForOneStrategy(
                         DeciderBuilder.matchAny({ e ->

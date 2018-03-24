@@ -1,18 +1,19 @@
 package ru.alcereo.processdsl.write.waitops;
 
+import akka.actor.ActorRef;
 import akka.actor.Props;
-import akka.routing.Router;
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
 
 
 public class DeviceStateFineMessageObserver extends AbstractMessageEventObserver<DeviceStateFineMessageObserver.DeviceStateFineMessage> {
 
-    public static Props props(Router dispatcherRouter) {
+    public static Props props(@NonNull ActorRef dispatcherRouter) {
         return Props.create(DeviceStateFineMessageObserver.class, () -> new DeviceStateFineMessageObserver(dispatcherRouter));
     }
 
-    public DeviceStateFineMessageObserver(Router dispatcherRouter) {
+    public DeviceStateFineMessageObserver(ActorRef dispatcherRouter) {
         super(dispatcherRouter);
     }
 

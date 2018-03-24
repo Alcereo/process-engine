@@ -1,18 +1,19 @@
 package ru.alcereo.processdsl.write.waitops;
 
+import akka.actor.ActorRef;
 import akka.actor.Props;
-import akka.routing.Router;
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
 
 
 public class DeviceStateErrorMessageObserver extends AbstractMessageEventObserver<DeviceStateErrorMessageObserver.DeviceStateErrorMessage> {
 
-    public static Props props(Router dispatcherRouter) {
+    public static Props props(@NonNull ActorRef dispatcherRouter) {
         return Props.create(DeviceStateErrorMessageObserver.class, () -> new DeviceStateErrorMessageObserver(dispatcherRouter));
     }
 
-    public DeviceStateErrorMessageObserver(Router dispatcherRouter) {
+    public DeviceStateErrorMessageObserver(ActorRef dispatcherRouter) {
         super(dispatcherRouter);
     }
 
