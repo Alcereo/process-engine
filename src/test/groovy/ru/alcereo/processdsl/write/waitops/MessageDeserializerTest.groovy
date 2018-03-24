@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.waitops
+package ru.alcereo.processdsl.write.waitops
 
 import akka.actor.ActorRef
 import akka.actor.OneForOneStrategy
@@ -8,7 +8,6 @@ import akka.routing.RoundRobinRoutingLogic
 import akka.routing.Router
 import akka.testkit.javadsl.TestKit
 import ru.alcereo.processdsl.ActorSystemInitializerTest
-import ru.alcereo.processdsl.write.waitops.MessageDeserializer
 
 class MessageDeserializerTest extends ActorSystemInitializerTest {
 
