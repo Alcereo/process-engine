@@ -1,45 +1,48 @@
 package ru.alcereo.processdsl.write.waitops.convert;
 
 import akka.actor.AbstractLoggingActor;
+import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.event.LoggingReceive;
-import akka.routing.Broadcast;
-import akka.routing.Router;
-import com.google.gson.Gson;
+import akka.pattern.Patterns;
+import akka.util.Timeout;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
+import scala.concurrent.ExecutionContext;
+import scala.concurrent.Future;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+
+import static ru.alcereo.processdsl.Utils.failure;
+import static ru.alcereo.processdsl.Utils.success;
 
 public class MessageDeserializer extends AbstractLoggingActor{
 
-    private final Router messagesParsersRouter;
-    private final Map<MessageMetadata, Parser> parsersMap = new HashMap<>();
+    private final ExecutionContext ds = getContext().dispatcher();
+    private final List<ParsingEntry> parsersMap = new ArrayList<>();
 
-    public MessageDeserializer(Router messagesParsersRouter) {
-        this.messagesParsersRouter = messagesParsersRouter;
+    public MessageDeserializer(Map<MetadataMatcher, ActorCreatorWrapper> parsersConfig,
+                               ActorRef messagesConsumer) {
 
-        parsersMap.put(
-                MessageMetadata.builder()
-                .sender("device-module")
-                .type("state-change-message")
-                .build(),
-                message -> {
-                    try {
-                        return new Gson().fromJson(message.message, StateChangeMessage.class);
-                    }catch (Exception e){
-                        throw new ParserParseException(e);
-                    }
-                }
+        parsersConfig.forEach((metadataMatcher, actorCreatorWrapper) ->
+            parsersMap.add(
+                    ParsingEntry.builder()
+                            .matcher(metadataMatcher)
+                            .parserRef(actorCreatorWrapper.buildRef(getContext(), messagesConsumer))
+                            .build()
+            )
         );
 
     }
 
-    public static Props props(Router messagesParsersRouter) {
-        return Props.create(MessageDeserializer.class, () -> new MessageDeserializer(messagesParsersRouter));
+    public static Props props(@NonNull Map<MetadataMatcher, ActorCreatorWrapper> parsersConfig,
+                              @NonNull ActorRef messagesConsumer) {
+
+        return Props.create(MessageDeserializer.class, () ->
+                new MessageDeserializer(parsersConfig, messagesConsumer)
+        );
     }
 
     @Override
@@ -52,16 +55,73 @@ public class MessageDeserializer extends AbstractLoggingActor{
         );
     }
 
-    private void handleTransportMessage(StringTransportMessage msg) throws ParserNotFoundException, ParserParseException {
+    private void handleTransportMessage(StringTransportMessage message) {
 
-        Parser parser = parsersMap.get(msg.metadata);
+        Optional<ParsingEntry> parsingEntryOpt = parsersMap.stream().filter(parsingEntry ->
+                parsingEntry.matcher
+                        .match(message.metadata)
+        ).findFirst();
 
-        if (parser==null)
-            throw new ParserNotFoundException(msg.metadata);
+        ActorRef sender = getSender();
 
-        Object object = parser.parseMessage(msg);
+        if (!parsingEntryOpt.isPresent()) {
+            sender.tell(
+                    ParserNotFoundResult.builder()
+                            .transportMessage(message),
+                    getSelf()
+            );
+        }else {
+            ParsingEntry parsingEntry = parsingEntryOpt.get();
 
-        messagesParsersRouter.route(new Broadcast(object), getSelf());
+            Future<Object> parserRequestF = Patterns.ask(
+                    parsingEntry.getParserRef(),
+                    message,
+                    Timeout.apply(5, TimeUnit.SECONDS)
+            );
+
+
+            parserRequestF.onSuccess(
+                    success(parserResponse -> {
+                        log().debug( "Parser: {} request success message: {}",
+                                parsingEntry.getParserRef(),
+                                parserResponse
+                        );
+
+                        if (parserResponse instanceof AbstractMessageParser.SuccessResponse)
+                            sender.tell(
+                                    SuccessHandlingMessage.builder()
+                                            .transportMessage(message)
+                                            .build(),
+                                    getSelf()
+                            );
+                        else
+                            sender.tell(
+                                    FailureHandlingMessage.builder()
+                                            .transportMessage(message)
+                                            .build(),
+                                    getSelf()
+                            );
+                    }),ds
+            );
+
+            parserRequestF.onFailure(
+                    failure(throwable -> {
+                        log().error(throwable, "Parser: {} message parsing error",
+                                parsingEntry.getParserRef()
+                        );
+
+                        sender.tell(
+                                FailureHandlingMessage.builder()
+                                        .transportMessage(message)
+                                        .error(throwable)
+                                        .build(),
+                                getSelf()
+                        );
+
+                    }),ds
+            );
+
+        }
     }
 
     @Value
@@ -86,73 +146,54 @@ public class MessageDeserializer extends AbstractLoggingActor{
      *                       MESSAGES                        *
      *=======================================================*/
 
+//    @Value
+//    @Builder
+//    public static class StateChangeMessage{
+//        @NonNull
+//        UUID id;
+//        @NonNull
+//        String atmId;
+//        String description;
+//        @NonNull
+//        String state;
+//    }
+
     @Value
     @Builder
-    public static class StateChangeMessage{
-        @NonNull
-        UUID id;
-        @NonNull
-        String atmId;
-        String description;
-        @NonNull
-        String state;
+    public static class ParserNotFoundResult{
+        StringTransportMessage transportMessage;
+    }
+
+    @Value
+    @Builder
+    public static class SuccessHandlingMessage{
+        StringTransportMessage transportMessage;
+    }
+
+    @Value
+    @Builder
+    public static class FailureHandlingMessage{
+        StringTransportMessage transportMessage;
+        Throwable error;
     }
 
     /*=======================================================*
      *                       UTIL                            *
      *=======================================================*/
 
-    @FunctionalInterface
-    private interface Parser<T>{
-        T parseMessage(StringTransportMessage message) throws ParserParseException;
+    @Value
+    @Builder
+    private class ParsingEntry {
+        MetadataMatcher matcher;
+        ActorRef parserRef;
     }
 
-    public static class ParserParseException extends Exception {
-        public ParserParseException() {
-        }
-
-        public ParserParseException(String message) {
-            super(message);
-        }
-
-        public ParserParseException(String message, Throwable cause) {
-            super(message, cause);
-        }
-
-        public ParserParseException(Throwable cause) {
-            super(cause);
-        }
-
-        public ParserParseException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-            super(message, cause, enableSuppression, writableStackTrace);
-        }
+    public interface MetadataMatcher {
+        boolean match(MessageMetadata metadata);
     }
 
-    public static class ParserNotFoundException extends Exception {
-        private MessageMetadata metadata;
-
-        public ParserNotFoundException(MessageMetadata metadata) {
-            super("Not found parser for metadata: "+metadata);
-            this.metadata = metadata;
-        }
-
-        public ParserNotFoundException() {
-        }
-
-        public ParserNotFoundException(String message) {
-            super(message);
-        }
-
-        public ParserNotFoundException(String message, Throwable cause) {
-            super(message, cause);
-        }
-
-        public ParserNotFoundException(Throwable cause) {
-            super(cause);
-        }
-
-        public ParserNotFoundException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-            super(message, cause, enableSuppression, writableStackTrace);
-        }
+    public interface ActorCreatorWrapper {
+        ActorRef buildRef(ActorContext context, ActorRef messagesConsumer);
     }
+
 }
