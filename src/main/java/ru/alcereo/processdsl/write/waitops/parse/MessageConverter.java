@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.write.waitops.convert;
+package ru.alcereo.processdsl.write.waitops.parse;
 
 import akka.actor.AbstractLoggingActor;
 import akka.actor.ActorRef;

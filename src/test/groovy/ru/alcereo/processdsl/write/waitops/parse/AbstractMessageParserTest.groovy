@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.write.waitops.convert
+package ru.alcereo.processdsl.write.waitops.parse
 
 import akka.actor.ActorRef
 import akka.testkit.javadsl.TestKit

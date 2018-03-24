@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.write.waitops
+package ru.alcereo.processdsl.write.waitops.dispatch
 
 import akka.testkit.javadsl.TestKit
 import ru.alcereo.processdsl.ActorSystemInitializerTest

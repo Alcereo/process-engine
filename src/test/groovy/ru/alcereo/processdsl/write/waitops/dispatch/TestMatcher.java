@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.write.waitops;
+package ru.alcereo.processdsl.write.waitops.dispatch;
 
 import akka.actor.ActorPath;
 import akka.actor.Props;
@@ -40,7 +40,7 @@ public class TestMatcher<T,R> extends EventDispatcherMatcher<T, R> {
     }
 
     @Override
-    public R buildResponseMessageFrom(T msg) {
+    public R buildResponseMessage(T msg) {
         return buildResponseMessageFrom.apply(msg);
     }
 

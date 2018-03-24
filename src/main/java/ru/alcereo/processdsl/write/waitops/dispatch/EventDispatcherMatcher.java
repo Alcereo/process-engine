@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.write.waitops;
+package ru.alcereo.processdsl.write.waitops.dispatch;
 
 import akka.actor.AbstractLoggingActor;
 import akka.actor.ActorPath;
@@ -47,7 +47,7 @@ public abstract class EventDispatcherMatcher<M_TYPE, RESP_TYPE> extends Abstract
 
             Future<Object> clientResponseF = Patterns.ask(
                     getContext().actorSelection(clientPath),
-                    buildResponseMessageFrom(msg),
+                    buildResponseMessage(msg),
                     Timeout.apply(5, TimeUnit.SECONDS)
             );
 
@@ -84,7 +84,7 @@ public abstract class EventDispatcherMatcher<M_TYPE, RESP_TYPE> extends Abstract
 
     abstract boolean eventMatches(M_TYPE msg);
 
-    abstract RESP_TYPE buildResponseMessageFrom(M_TYPE msg);
+    abstract RESP_TYPE buildResponseMessage(M_TYPE msg);
 
 
     @Value

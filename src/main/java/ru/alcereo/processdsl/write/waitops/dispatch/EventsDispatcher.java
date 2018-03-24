@@ -1,4 +1,4 @@
-package ru.alcereo.processdsl.write.waitops;
+package ru.alcereo.processdsl.write.waitops.dispatch;
 
 import akka.actor.Props;
 import akka.event.Logging;
