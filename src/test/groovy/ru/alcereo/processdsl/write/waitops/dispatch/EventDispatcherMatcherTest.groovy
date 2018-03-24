@@ -1,5 +1,6 @@
 package ru.alcereo.processdsl.write.waitops.dispatch
 
+import akka.actor.ActorRef
 import akka.testkit.javadsl.TestKit
 import ru.alcereo.processdsl.ActorSystemInitializerTest
 import scala.concurrent.duration.FiniteDuration
@@ -8,52 +9,44 @@ import java.util.concurrent.TimeUnit
 
 class EventDispatcherMatcherTest extends ActorSystemInitializerTest {
 
-    void testEmptyHandle() {
+    private TestKit stubClient
+    private TestKit stubManager
+    private String testSuccessString = "success"
+    private String testResponse = "response-success"
+    private ActorRef matcherActor
 
-        def stubClient = new TestKit(system)
-        def stubManager = new TestKit(system)
+    @Override
+    void setUp() {
+        super.setUp()
+
+        stubClient = new TestKit(system)
+        stubManager = new TestKit(system)
 
         def matcherProps = TestMatcher.propsBuilder()
                 .clientPath(stubClient.getRef().path())
                 .messageClass(String)
-                .eventMatches { evt -> false }
-                .buildResponseMessageFrom { evt -> evt }
+                .eventMatches { evt -> evt.equals(this.testSuccessString) }
+                .buildResponseMessageFrom { evt -> this.testResponse }
                 .build()
 
-        def matcherActor = system.actorOf(matcherProps, "test-matcher")
-
-        matcherActor.tell(new Object(), stubManager.getRef())
-        stubManager.expectMsgClass(EventDispatcherMatcher.MessageEmptyHandled)
-
-        matcherActor.tell("some string", stubManager.getRef())
-        stubManager.expectMsgClass(EventDispatcherMatcher.MessageEmptyHandled)
+        matcherActor = system.actorOf(matcherProps, "test-matcher")
 
     }
 
-    void testClientResponse() {
+    void testHandleEmpty() {
 
-        def stubClient = new TestKit(system)
-        def stubManager = new TestKit(system)
-
-
-        def testSuccessString = "success"
-        def testResponse = "response-success"
-        def matcherProps = TestMatcher.propsBuilder()
-                .clientPath(stubClient.getRef().path())
-                .messageClass(String)
-                .eventMatches { evt -> evt.equals(testSuccessString) }
-                .buildResponseMessageFrom { evt -> testResponse }
-                .build()
-
-        def matcherActor = system.actorOf(matcherProps, "test-matcher")
-
-        log.info("Test handle empty")
         matcherActor.tell("unexpected", stubManager.getRef())
         stubManager.expectMsgClass(EventDispatcherMatcher.MessageEmptyHandled)
 
+        stubClient.expectNoMsg()
+    }
 
-        log.info("Test handle success - client success - ClientResponse")
-        matcherActor.tell(testSuccessString, stubManager.getRef())
+    void testHandleSuccessClientRequestSuccess() {
+
+        stubManager.send(
+                matcherActor,
+                testSuccessString
+        )
 
         stubClient.expectMsg(testResponse)
         stubClient.reply(
@@ -66,9 +59,10 @@ class EventDispatcherMatcherTest extends ActorSystemInitializerTest {
                 FiniteDuration.apply(6, TimeUnit.SECONDS),
                 EventDispatcherMatcher.ClientResponse
         )
+    }
 
+    void testHandleSuccessClientResponsWithFinish() {
 
-        log.info("Test handle success - client success - ClientResponseWithFinish")
         matcherActor.tell(testSuccessString, stubManager.getRef())
 
         stubClient.expectMsg(testResponse)
@@ -78,22 +72,24 @@ class EventDispatcherMatcherTest extends ActorSystemInitializerTest {
                         .build()
         )
 
+
         stubManager.expectMsgClass(
                 FiniteDuration.apply(6, TimeUnit.SECONDS),
                 EventDispatcherMatcher.ClientResponseWithFinish
         )
+    }
 
+    void testHandleSuccessClientRequestError() {
 
-        log.info("Test handle success - client falure")
         matcherActor.tell(testSuccessString, stubManager.getRef())
 
         stubClient.expectMsg(testResponse)
+//       --- Don`t reply ---
 
         stubManager.expectMsgClass(
                 FiniteDuration.apply(6, TimeUnit.SECONDS),
                 EventDispatcherMatcher.ClientResponseFailure
         )
-
 
     }
 }
