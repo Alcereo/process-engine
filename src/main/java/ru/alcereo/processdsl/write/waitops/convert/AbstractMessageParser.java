@@ -33,14 +33,14 @@ public abstract class AbstractMessageParser<T> extends AbstractLoggingActor{
     public Receive createReceive() {
         return LoggingReceive.create(
                 receiveBuilder()
-                        .match(MessageDeserializer.StringTransportMessage.class, this::handleJsonObjectMessage)
+                        .match(MessageConverter.StringTransportMessage.class, this::handleJsonObjectMessage)
                         .build(),
                 getContext()
         );
     }
 
 
-    private void handleJsonObjectMessage(MessageDeserializer.StringTransportMessage message) {
+    private void handleJsonObjectMessage(MessageConverter.StringTransportMessage message) {
 
         T response;
         final ActorRef sender = getSender();
@@ -66,12 +66,15 @@ public abstract class AbstractMessageParser<T> extends AbstractLoggingActor{
 
         clientRequestF.onSuccess(
                 success(clientResponse -> {
-                    log().debug( "Client: {} request success message: {}", clientResponse);
+                    log().debug( "Client: {} request success message: {}", clientRef, clientResponse);
 
                     if (clientResponse instanceof ClientMessageSuccessResponse)
                         sender.tell(SuccessResponse.builder().message(message).build(), getSelf());
-
-                    sender.tell(FailureResponse.builder().message(message).build(), getSelf());
+                    else
+                        sender.tell(FailureResponse.builder()
+                                .error(new WrongResponseMessageType(clientResponse.getClass()))
+                                .message(message)
+                                .build(), getSelf());
 
                 }),ds
         );
@@ -92,7 +95,7 @@ public abstract class AbstractMessageParser<T> extends AbstractLoggingActor{
         );
     }
 
-    abstract T parseMessage(MessageDeserializer.StringTransportMessage message) throws Exception;
+    abstract T parseMessage(MessageConverter.StringTransportMessage message) throws Exception;
 
     @Value
     @Builder
@@ -102,14 +105,19 @@ public abstract class AbstractMessageParser<T> extends AbstractLoggingActor{
     @Value
     @Builder
     public static class SuccessResponse{
-        MessageDeserializer.StringTransportMessage message;
+        MessageConverter.StringTransportMessage message;
     }
 
     @Value
     @Builder
     public static class FailureResponse{
-        MessageDeserializer.StringTransportMessage message;
+        MessageConverter.StringTransportMessage message;
         Throwable error;
     }
 
+    public static class WrongResponseMessageType extends Exception {
+        public WrongResponseMessageType(Class aClass) {
+            super("Get wrong request message type: "+aClass.getName()+". Expected: "+ClientMessageSuccessResponse.class.getName());
+        }
+    }
 }

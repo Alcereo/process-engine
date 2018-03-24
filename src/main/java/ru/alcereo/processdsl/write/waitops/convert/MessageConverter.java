@@ -18,30 +18,30 @@ import java.util.concurrent.TimeUnit;
 import static ru.alcereo.processdsl.Utils.failure;
 import static ru.alcereo.processdsl.Utils.success;
 
-public class MessageDeserializer extends AbstractLoggingActor{
+public class MessageConverter extends AbstractLoggingActor{
 
     private final ExecutionContext ds = getContext().dispatcher();
     private final List<ParsingEntry> parsersMap = new ArrayList<>();
 
-    public MessageDeserializer(Map<MetadataMatcher, ActorCreatorWrapper> parsersConfig,
-                               ActorRef messagesConsumer) {
+    public MessageConverter(Map<MetadataMatcher, ParserActorCreatorWrapper> parsersConfig,
+                            ActorRef messagesConsumer) {
 
-        parsersConfig.forEach((metadataMatcher, actorCreatorWrapper) ->
-            parsersMap.add(
-                    ParsingEntry.builder()
-                            .matcher(metadataMatcher)
-                            .parserRef(actorCreatorWrapper.buildRef(getContext(), messagesConsumer))
-                            .build()
-            )
+        parsersConfig.forEach((metadataMatcher, parserActorCreatorWrapper) ->
+                parsersMap.add(
+                        ParsingEntry.builder()
+                                .matcher(metadataMatcher)
+                                .parserRef(parserActorCreatorWrapper.buildRef(getContext(), messagesConsumer))
+                                .build()
+                )
         );
 
     }
 
-    public static Props props(@NonNull Map<MetadataMatcher, ActorCreatorWrapper> parsersConfig,
+    public static Props props(@NonNull Map<MetadataMatcher, ParserActorCreatorWrapper> parsersConfig,
                               @NonNull ActorRef messagesConsumer) {
 
-        return Props.create(MessageDeserializer.class, () ->
-                new MessageDeserializer(parsersConfig, messagesConsumer)
+        return Props.create(MessageConverter.class, () ->
+                new MessageConverter(parsersConfig, messagesConsumer)
         );
     }
 
@@ -67,7 +67,8 @@ public class MessageDeserializer extends AbstractLoggingActor{
         if (!parsingEntryOpt.isPresent()) {
             sender.tell(
                     ParserNotFoundResult.builder()
-                            .transportMessage(message),
+                            .transportMessage(message)
+                            .build(),
                     getSelf()
             );
         }else {
@@ -82,7 +83,7 @@ public class MessageDeserializer extends AbstractLoggingActor{
 
             parserRequestF.onSuccess(
                     success(parserResponse -> {
-                        log().debug( "Parser: {} request success message: {}",
+                        log().debug( "Parser: {} response message: {}",
                                 parsingEntry.getParserRef(),
                                 parserResponse
                         );
@@ -94,10 +95,19 @@ public class MessageDeserializer extends AbstractLoggingActor{
                                             .build(),
                                     getSelf()
                             );
+                        else if (parserResponse instanceof AbstractMessageParser.FailureResponse)
+                            sender.tell(
+                                    FailureHandlingMessage.builder()
+                                            .transportMessage(message)
+                                            .error(((AbstractMessageParser.FailureResponse) parserResponse).getError())
+                                            .build(),
+                                    getSelf()
+                            );
                         else
                             sender.tell(
                                     FailureHandlingMessage.builder()
                                             .transportMessage(message)
+                                            .error(new WrongResponseMessageType(parserResponse.getClass()))
                                             .build(),
                                     getSelf()
                             );
@@ -106,7 +116,7 @@ public class MessageDeserializer extends AbstractLoggingActor{
 
             parserRequestF.onFailure(
                     failure(throwable -> {
-                        log().error(throwable, "Parser: {} message parsing error",
+                        log().error(throwable, "Parser: {} request error",
                                 parsingEntry.getParserRef()
                         );
 
@@ -146,18 +156,6 @@ public class MessageDeserializer extends AbstractLoggingActor{
      *                       MESSAGES                        *
      *=======================================================*/
 
-//    @Value
-//    @Builder
-//    public static class StateChangeMessage{
-//        @NonNull
-//        UUID id;
-//        @NonNull
-//        String atmId;
-//        String description;
-//        @NonNull
-//        String state;
-//    }
-
     @Value
     @Builder
     public static class ParserNotFoundResult{
@@ -183,7 +181,7 @@ public class MessageDeserializer extends AbstractLoggingActor{
 
     @Value
     @Builder
-    private class ParsingEntry {
+    private static class ParsingEntry {
         MetadataMatcher matcher;
         ActorRef parserRef;
     }
@@ -192,8 +190,17 @@ public class MessageDeserializer extends AbstractLoggingActor{
         boolean match(MessageMetadata metadata);
     }
 
-    public interface ActorCreatorWrapper {
+    public interface ParserActorCreatorWrapper {
         ActorRef buildRef(ActorContext context, ActorRef messagesConsumer);
+    }
+
+    public static class WrongResponseMessageType extends Exception {
+        public WrongResponseMessageType(Class aClass) {
+            super("Get wrong request message type: "+aClass.getName()+". Expected: " +
+                    ""+AbstractMessageParser.SuccessResponse.class.getName()+", " +
+                    "or "+AbstractMessageParser.FailureResponse.class.getName()
+            );
+        }
     }
 
 }

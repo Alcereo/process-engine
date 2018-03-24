@@ -35,9 +35,9 @@ class AbstractMessageParserTest extends ActorSystemInitializerTest {
 
         managerStub.send(
                 testParserActor,
-                MessageDeserializer.StringTransportMessage.builder()
+                MessageConverter.StringTransportMessage.builder()
                 .metadata(
-                        MessageDeserializer.MessageMetadata.builder()
+                        MessageConverter.MessageMetadata.builder()
                         .type("type")
                         .sender("sender")
                         .build()
@@ -59,9 +59,9 @@ class AbstractMessageParserTest extends ActorSystemInitializerTest {
 
         managerStub.send(
                 testParserActor,
-                MessageDeserializer.StringTransportMessage.builder()
+                MessageConverter.StringTransportMessage.builder()
                         .metadata(
-                        MessageDeserializer.MessageMetadata.builder()
+                        MessageConverter.MessageMetadata.builder()
                                 .type("type")
                                 .sender("sender")
                                 .build()
@@ -88,9 +88,9 @@ class AbstractMessageParserTest extends ActorSystemInitializerTest {
 
         managerStub.send(
                 testParserActor,
-                MessageDeserializer.StringTransportMessage.builder()
+                MessageConverter.StringTransportMessage.builder()
                         .metadata(
-                        MessageDeserializer.MessageMetadata.builder()
+                        MessageConverter.MessageMetadata.builder()
                                 .type("type")
                                 .sender("sender")
                                 .build()
@@ -125,9 +125,9 @@ class AbstractMessageParserTest extends ActorSystemInitializerTest {
 
         managerStub.send(
                 testParserActor,
-                MessageDeserializer.StringTransportMessage.builder()
+                MessageConverter.StringTransportMessage.builder()
                         .metadata(
-                        MessageDeserializer.MessageMetadata.builder()
+                        MessageConverter.MessageMetadata.builder()
                                 .type("type")
                                 .sender("sender")
                                 .build()
