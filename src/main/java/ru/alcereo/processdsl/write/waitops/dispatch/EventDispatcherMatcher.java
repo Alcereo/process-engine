@@ -105,7 +105,8 @@ public abstract class EventDispatcherMatcher<M_TYPE, RESP_TYPE> extends Abstract
     }
 
     @Value
+    @Builder
     public static class ClientResponseFailure {
-        private final Object o;
+        private final Object msg;
     }
 }

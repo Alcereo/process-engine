@@ -32,7 +32,7 @@ public class CreateTicketMessageParser extends AbstractMessageParser<CreateTicke
 
     @Value
     @Builder
-    public static class CreateTicketMessage{
+    public static class CreateTicketMessage implements ParsedMessage{
 
         @NonNull
         UUID id;

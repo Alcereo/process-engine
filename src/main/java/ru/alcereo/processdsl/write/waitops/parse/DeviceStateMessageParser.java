@@ -32,7 +32,7 @@ public class DeviceStateMessageParser extends AbstractMessageParser<DeviceStateM
 
     @Value
     @Builder
-    public static class DeviceStateChangeMessage{
+    public static class DeviceStateChangeMessage implements ParsedMessage{
         @NonNull
         UUID id;
         @NonNull
