@@ -1,5 +1,6 @@
 package ru.alcereo.processdsl.write.waitops.dispatch;
 
+import akka.actor.ActorPath;
 import akka.actor.ActorRef;
 import akka.actor.PoisonPill;
 import akka.actor.Props;
@@ -8,20 +9,20 @@ import akka.event.LoggingAdapter;
 import akka.event.LoggingReceive;
 import akka.persistence.AbstractPersistentActor;
 import akka.routing.RoundRobinRoutingLogic;
-import akka.routing.Routee;
 import akka.routing.Router;
-import lombok.Builder;
-import lombok.NonNull;
-import lombok.Value;
+import lombok.*;
 import ru.alcereo.processdsl.write.waitops.parse.ParsedMessage;
-import scala.collection.immutable.IndexedSeq;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class EventsDispatcher extends AbstractPersistentActor{
 
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
-    private Router childs = new Router(new RoundRobinRoutingLogic(), new ArrayList<>());
+    private Router matchersRouter = new Router(new RoundRobinRoutingLogic(), new ArrayList<>());
 
     private final String persistentId;
 
@@ -40,10 +41,13 @@ public class EventsDispatcher extends AbstractPersistentActor{
         return persistentId;
     }
 
+    private ClientsMatchersData clientsMatchersData = new ClientsMatchersData();
+
     @Override
     public Receive createReceiveRecover() {
         return LoggingReceive.create(
                 receiveBuilder()
+                        .match(AddClientMatcherEvt.class, this::recoverAddClientMatcherEvt)
                         .build(),
                 getContext()
         );
@@ -57,13 +61,21 @@ public class EventsDispatcher extends AbstractPersistentActor{
                         .match(RemoveMatcherCmd.class,      this::handleRemoveMatcher)
                         .match(MatcherClientError.class,    this::handleMatcherClientError)
                         .match(ParsedMessage.class,         this::handleParsedMessage)
+
+                        .match(GetRoutersQuery.class,               this::queryGetRouters)
+                        .match(GetClientsMatchersDataQuery.class,   this::queryGetClientsMatchersData)
                         .build(),
                 getContext()
         );
     }
 
+
+    /* ========================================= *
+     *                 HANDLERS                  *
+     * ========================================= */
+
     private void handleRemoveMatcher(RemoveMatcherCmd cmd) {
-        childs = childs.removeRoutee(cmd.getMatcher());
+        matchersRouter = matchersRouter.removeRoutee(cmd.getMatcher());
         cmd.getMatcher().tell(PoisonPill.getInstance(), getSelf());
 
     }
@@ -75,27 +87,41 @@ public class EventsDispatcher extends AbstractPersistentActor{
         );
     }
 
-
     private void handleParsedMessage(ParsedMessage msg) {
-        IndexedSeq<Routee> routees = childs.routees();
+        throw new NotImplementedException();
     }
 
     private void handleSubscribeRequestMessage(SubscribeRequestCmd msg) {
 
-        persist(msg, param -> {
+        final ActorRef sender = getSender();
 
+        Props matcherProps = msg.getStrategy().createProps(sender.path());
+
+        val evt = AddClientMatcherEvt.builder()
+                .clientPath(sender.path())
+                .matcherProps(matcherProps)
+                .build();
+
+        ActorRef newMatcher = getContext().actorOf(matcherProps);
+        matchersRouter = matchersRouter.addRoutee(newMatcher);
+
+        log.debug("Matcher: {} created for client: {}", newMatcher, sender);
+
+        persist(evt, event -> {
+            clientsMatchersData.addClientMatcher(event);
+            sender.tell(new SuccessCmd(), getSelf());
         });
     }
 
-
-
     @Value
+    @Builder
     public static class SubscribeRequestCmd {
-        MatchStrategy strategy;
+        MatcherStrategy strategy;
     }
 
-
-    public interface MatchStrategy{
+    @Value
+    @Builder
+    public static class SuccessCmd{
     }
 
     @Value
@@ -108,6 +134,99 @@ public class EventsDispatcher extends AbstractPersistentActor{
     @Builder
     public static class MatcherClientError{
         ActorRef matcher;
-        EventDispatcherMatcher.ClientResponseFailure message;
+        AbstractEventDispatcherMatcher.ClientResponseFailure message;
     }
+
+    /* ========================================= *
+     *                 RECOVERS                  *
+     * ========================================= */
+
+    private void recoverAddClientMatcherEvt(AddClientMatcherEvt evt) {
+
+        ActorRef newMatcher = getContext().actorOf(evt.getMatcherProps());
+        matchersRouter = matchersRouter.addRoutee(newMatcher);
+
+        log.debug("Matcher: {} recovered for client: {}", newMatcher, evt.getClientPath());
+
+        clientsMatchersData.addClientMatcher(evt);
+
+    }
+
+
+    /* ========================================= *
+     *                   STATE                   *
+     * ========================================= */
+
+    @Data
+    public static class ClientsMatchersData {
+        private Map<ActorPath, Props> matchersMap = new HashMap<>();
+
+        private ClientsMatchersData(Map<ActorPath, Props> matchersMap){
+            this.matchersMap = matchersMap;
+        }
+
+        public ClientsMatchersData(){
+        }
+
+        public void addClientMatcher(AddClientMatcherEvt event) {
+            matchersMap.put(event.clientPath, event.matcherProps);
+        }
+
+        public int size(){
+            return matchersMap.size();
+        }
+
+        public Props getProps(ActorPath actorPath){
+            return matchersMap.get(actorPath);
+        }
+
+        public ClientsMatchersData copy(){
+            return new ClientsMatchersData(new HashMap<>(matchersMap));
+        }
+    }
+
+    public interface MatcherStrategy {
+        Props createProps(ActorPath clientPath);
+    }
+
+    @Value
+    @Builder
+    public static class AddClientMatcherEvt implements Serializable {
+
+        @NonNull
+        ActorPath clientPath;
+
+        @NonNull
+        Props matcherProps;
+    }
+
+
+    /* ========================================= *
+     *                 QUERIES                   *
+     * ========================================= */
+
+    private void queryGetClientsMatchersData(GetClientsMatchersDataQuery query) {
+        getSender().tell(
+                clientsMatchersData.copy(),
+                getSelf()
+        );
+    }
+
+    private void queryGetRouters(GetRoutersQuery query) {
+        getSender().tell(
+                matchersRouter,
+                getSelf()
+        );
+    }
+
+    @Value
+    @Builder
+    public static class GetRoutersQuery {
+    }
+
+    @Value
+    @Builder
+    public static class GetClientsMatchersDataQuery {
+    }
+
 }

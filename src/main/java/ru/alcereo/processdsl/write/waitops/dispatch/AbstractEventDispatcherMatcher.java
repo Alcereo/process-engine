@@ -16,13 +16,13 @@ import java.util.concurrent.TimeUnit;
 import static ru.alcereo.processdsl.Utils.failure;
 import static ru.alcereo.processdsl.Utils.success;
 
-public abstract class EventDispatcherMatcher<M_TYPE, RESP_TYPE> extends AbstractLoggingActor{
+public abstract class AbstractEventDispatcherMatcher<M_TYPE, RESP_TYPE> extends AbstractLoggingActor{
 
     private final ActorPath clientPath;
     private Class<M_TYPE> messageClass;
     private final ExecutionContext ds = getContext().dispatcher();
 
-    public EventDispatcherMatcher(ActorPath clientPath, Class<M_TYPE> messageClass) {
+    public AbstractEventDispatcherMatcher(ActorPath clientPath, Class<M_TYPE> messageClass) {
         this.clientPath = clientPath;
         this.messageClass = messageClass;
     }

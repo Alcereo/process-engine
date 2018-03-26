@@ -42,7 +42,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
             TestKit stub ->
                 stub.expectMsg(message)
                 stub.reply(
-                        EventDispatcherMatcher.ClientResponse.builder()
+                        AbstractEventDispatcherMatcher.ClientResponse.builder()
                         .msg(message)
                         .build()
                 )
@@ -86,7 +86,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
             TestKit stub ->
                 stub.expectMsg(message)
                 stub.reply(
-                        EventDispatcherMatcher.ClientResponseFailure.builder()
+                        AbstractEventDispatcherMatcher.ClientResponseFailure.builder()
                                 .msg(message)
                                 .build()
                 )
@@ -138,7 +138,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
             TestKit stub ->
                 stub.expectMsg(message)
                 stub.reply(
-                        EventDispatcherMatcher.ClientResponseWithFinish.builder()
+                        AbstractEventDispatcherMatcher.ClientResponseWithFinish.builder()
                                 .msg(message)
                                 .build()
                 )
@@ -190,7 +190,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
         }
 
         matcherStubList.get(1).reply(
-                EventDispatcherMatcher.ClientResponse.builder()
+                AbstractEventDispatcherMatcher.ClientResponse.builder()
                 .msg(message)
                 .build()
         )
@@ -198,7 +198,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
 
 
         matcherStubList.get(5).reply(
-                EventDispatcherMatcher.ClientResponse.builder()
+                AbstractEventDispatcherMatcher.ClientResponse.builder()
                         .msg(message)
                         .build()
         )

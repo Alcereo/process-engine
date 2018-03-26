@@ -7,7 +7,7 @@ import scala.concurrent.duration.FiniteDuration
 
 import java.util.concurrent.TimeUnit
 
-class EventDispatcherMatcherTest extends ActorSystemInitializerTest {
+class AbstractEventDispatcherMatcherTest extends ActorSystemInitializerTest {
 
     private TestKit stubClient
     private TestKit stubManager
@@ -36,7 +36,7 @@ class EventDispatcherMatcherTest extends ActorSystemInitializerTest {
     void testHandleEmpty() {
 
         matcherActor.tell("unexpected", stubManager.getRef())
-        stubManager.expectMsgClass(EventDispatcherMatcher.MessageEmptyHandled)
+        stubManager.expectMsgClass(AbstractEventDispatcherMatcher.MessageEmptyHandled)
 
         stubClient.expectNoMsg()
     }
@@ -50,14 +50,14 @@ class EventDispatcherMatcherTest extends ActorSystemInitializerTest {
 
         stubClient.expectMsg(testResponse)
         stubClient.reply(
-                EventDispatcherMatcher.ClientResponse.builder()
+                AbstractEventDispatcherMatcher.ClientResponse.builder()
                         .msg(testResponse)
                         .build()
         )
 
         stubManager.expectMsgClass(
                 FiniteDuration.apply(6, TimeUnit.SECONDS),
-                EventDispatcherMatcher.ClientResponse
+                AbstractEventDispatcherMatcher.ClientResponse
         )
     }
 
@@ -67,7 +67,7 @@ class EventDispatcherMatcherTest extends ActorSystemInitializerTest {
 
         stubClient.expectMsg(testResponse)
         stubClient.reply(
-                EventDispatcherMatcher.ClientResponseWithFinish.builder()
+                AbstractEventDispatcherMatcher.ClientResponseWithFinish.builder()
                         .msg(testResponse)
                         .build()
         )
@@ -75,7 +75,7 @@ class EventDispatcherMatcherTest extends ActorSystemInitializerTest {
 
         stubManager.expectMsgClass(
                 FiniteDuration.apply(6, TimeUnit.SECONDS),
-                EventDispatcherMatcher.ClientResponseWithFinish
+                AbstractEventDispatcherMatcher.ClientResponseWithFinish
         )
     }
 
@@ -88,7 +88,7 @@ class EventDispatcherMatcherTest extends ActorSystemInitializerTest {
 
         stubManager.expectMsgClass(
                 FiniteDuration.apply(6, TimeUnit.SECONDS),
-                EventDispatcherMatcher.ClientResponseFailure
+                AbstractEventDispatcherMatcher.ClientResponseFailure
         )
 
     }

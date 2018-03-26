@@ -27,11 +27,12 @@ public class DispatcherMediator extends AbstractActorWithTimers {
     private Map<ActorRef, Boolean> requestMap = new HashMap<>();
 
     public DispatcherMediator(Router workers, ActorRef manager, ParsedMessage message) {
-        this.workers = workers;
 
+        this.workers = workers;
         this.requestCounter = workers.routees().size();
         this.manager = manager;
         this.message = message;
+
         workers.routees().foreach(v1 -> {
             requestMap.put(((ActorRefRoutee)v1).ref(), false);
             return null;
@@ -48,10 +49,10 @@ public class DispatcherMediator extends AbstractActorWithTimers {
                 receiveBuilder()
                         .match(StartBroadcastMessage.class,                             this::handleBroadcasting)
                         .match(TimeoutTriggerMessage.class,                             this::handleTrigger)
-                        .match(EventDispatcherMatcher.MessageEmptyHandled.class,        this::handleMessageHandle)
-                        .match(EventDispatcherMatcher.ClientResponse.class,             this::handleClientResponse)
-                        .match(EventDispatcherMatcher.ClientResponseWithFinish.class,   this::handleClientResponseWithFinish)
-                        .match(EventDispatcherMatcher.ClientResponseFailure.class,      this::handleCliendResponseFailure)
+                        .match(AbstractEventDispatcherMatcher.MessageEmptyHandled.class,        this::handleMessageHandle)
+                        .match(AbstractEventDispatcherMatcher.ClientResponse.class,             this::handleClientResponse)
+                        .match(AbstractEventDispatcherMatcher.ClientResponseWithFinish.class,   this::handleClientResponseWithFinish)
+                        .match(AbstractEventDispatcherMatcher.ClientResponseFailure.class,      this::handleCliendResponseFailure)
                         .build(),
                 getContext()
         );
@@ -83,7 +84,7 @@ public class DispatcherMediator extends AbstractActorWithTimers {
         );
     }
 
-    private void handleClientResponseWithFinish(EventDispatcherMatcher.ClientResponseWithFinish message) {
+    private void handleClientResponseWithFinish(AbstractEventDispatcherMatcher.ClientResponseWithFinish message) {
         manager.tell(
                 EventsDispatcher.RemoveMatcherCmd.builder()
                 .matcher(getSender())
@@ -94,7 +95,7 @@ public class DispatcherMediator extends AbstractActorWithTimers {
         countRequests(getSender());
     }
 
-    private void handleCliendResponseFailure(EventDispatcherMatcher.ClientResponseFailure message) {
+    private void handleCliendResponseFailure(AbstractEventDispatcherMatcher.ClientResponseFailure message) {
         manager.tell(
                 EventsDispatcher.MatcherClientError.builder()
                         .matcher(getSender())
@@ -106,11 +107,11 @@ public class DispatcherMediator extends AbstractActorWithTimers {
         countRequests(getSender());
     }
 
-    private void handleClientResponse(EventDispatcherMatcher.ClientResponse message) {
+    private void handleClientResponse(AbstractEventDispatcherMatcher.ClientResponse message) {
         countRequests(getSender());
     }
 
-    private void handleMessageHandle(EventDispatcherMatcher.MessageEmptyHandled message) {
+    private void handleMessageHandle(AbstractEventDispatcherMatcher.MessageEmptyHandled message) {
         countRequests(getSender());
     }
 
