@@ -70,6 +70,11 @@ public abstract class AbstractMessageParser<T> extends AbstractLoggingActor{
 
                     if (clientResponse instanceof ClientMessageSuccessResponse)
                         sender.tell(SuccessResponse.builder().message(message).build(), getSelf());
+                    else if (clientResponse instanceof ClientMessageFailureResponse)
+                        sender.tell(FailureResponse.builder()
+                                .error(((ClientMessageFailureResponse) clientResponse).getError())
+                                .message(message)
+                                .build(), getSelf());
                     else
                         sender.tell(FailureResponse.builder()
                                 .error(new WrongResponseMessageType(clientResponse.getClass()))
@@ -100,6 +105,12 @@ public abstract class AbstractMessageParser<T> extends AbstractLoggingActor{
     @Value
     @Builder
     public static class ClientMessageSuccessResponse{
+    }
+
+    @Value
+    @Builder
+    public static class ClientMessageFailureResponse{
+        Throwable error;
     }
 
     @Value

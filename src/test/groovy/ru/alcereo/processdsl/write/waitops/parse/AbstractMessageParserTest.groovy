@@ -55,7 +55,7 @@ class AbstractMessageParserTest extends ActorSystemInitializerTest {
 
     }
 
-    void testSuccessParseFailedClientResponse() {
+    void testSuccessParseClientNotResponse() {
 
         managerStub.send(
                 testParserActor,
@@ -80,6 +80,41 @@ class AbstractMessageParserTest extends ActorSystemInitializerTest {
         managerStub.expectMsgClass(
                 FiniteDuration.apply(6, TimeUnit.SECONDS),
                 AbstractMessageParser.FailureResponse
+        )
+
+    }
+
+    void testSuccessParseClientFailureResponse() {
+
+        managerStub.send(
+                testParserActor,
+                MessageConverter.StringTransportMessage.builder()
+                        .metadata(
+                        MessageConverter.MessageMetadata.builder()
+                                .type("type")
+                                .sender("sender")
+                                .build()
+                ).message("Some message")
+                        .build()
+        )
+
+        clientStub.expectMsgClass(String)
+
+        def error = new RuntimeException()
+        clientStub.reply(
+                AbstractMessageParser.ClientMessageFailureResponse.builder()
+                        .error(error)
+                        .build()
+        )
+
+        def response = managerStub.expectMsgClass(
+                FiniteDuration.apply(6, TimeUnit.SECONDS),
+                AbstractMessageParser.FailureResponse
+        )
+
+        assertEquals(
+                error,
+                response.error
         )
 
     }
