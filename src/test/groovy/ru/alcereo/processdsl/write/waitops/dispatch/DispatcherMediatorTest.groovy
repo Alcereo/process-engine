@@ -145,7 +145,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
                                 .build()
                 )
 
-                def matcherErrorMessage = managerStub.expectMsgClass(EventsDispatcher.RemoveMatcherCmd)
+                def matcherErrorMessage = managerStub.expectMsgClass(EventsDispatcher.RemoveClientMatcherCmd)
                 assertEquals(
                         matcherErrorMessage.getMatcher(),
                         stub.getRef()

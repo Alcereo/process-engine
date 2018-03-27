@@ -26,7 +26,7 @@ class AbstractEventDispatcherMatcherTest extends ActorSystemInitializerTest {
                 .clientPath(stubClient.getRef().path())
                 .messageClass(String)
                 .eventMatches { evt -> evt.equals(this.testSuccessString) }
-                .buildResponseMessageFrom { evt -> this.testResponse }
+                .buildResponseMessage { evt -> this.testResponse }
                 .build()
 
         matcherActor = system.actorOf(matcherProps, "test-matcher")
@@ -68,7 +68,6 @@ class AbstractEventDispatcherMatcherTest extends ActorSystemInitializerTest {
         stubClient.expectMsg(testResponse)
         stubClient.reply(
                 AbstractEventDispatcherMatcher.ClientResponseWithFinish.builder()
-                        .msg(testResponse)
                         .build()
         )
 

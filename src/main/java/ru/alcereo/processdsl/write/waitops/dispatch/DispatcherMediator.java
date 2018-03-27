@@ -87,9 +87,10 @@ public class DispatcherMediator extends AbstractActorWithTimers {
 
     private void handleClientResponseWithFinish(AbstractEventDispatcherMatcher.ClientResponseWithFinish message) {
         manager.tell(
-                EventsDispatcher.RemoveMatcherCmd.builder()
-                .matcher(getSender())
-                .build(),
+                EventsDispatcher.RemoveClientMatcherCmd.builder()
+                        .matcher(getSender())
+                        .clientPath(message.getClientPath())
+                        .build(),
                 getSelf()
         );
 

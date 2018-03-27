@@ -7,21 +7,31 @@ import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import akka.event.LoggingReceive;
+import akka.pattern.Patterns;
 import akka.persistence.AbstractPersistentActor;
 import akka.routing.RoundRobinRoutingLogic;
 import akka.routing.Router;
+import akka.util.Timeout;
 import lombok.*;
+import ru.alcereo.processdsl.write.waitops.parse.AbstractMessageParser;
 import ru.alcereo.processdsl.write.waitops.parse.ParsedMessage;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import scala.concurrent.ExecutionContext;
+import scala.concurrent.Future;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import static ru.alcereo.processdsl.Utils.failure;
+import static ru.alcereo.processdsl.Utils.success;
 
 public class EventsDispatcher extends AbstractPersistentActor{
 
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+    private ExecutionContext ds = getContext().dispatcher();
+
     private Router matchersRouter = new Router(new RoundRobinRoutingLogic(), new ArrayList<>());
 
     private final String persistentId;
@@ -58,7 +68,7 @@ public class EventsDispatcher extends AbstractPersistentActor{
         return LoggingReceive.create(
                 receiveBuilder()
                         .match(SubscribeRequestCmd.class,   this::handleSubscribeRequestMessage)
-                        .match(RemoveMatcherCmd.class,      this::handleRemoveMatcher)
+                        .match(RemoveClientMatcherCmd.class,      this::handleRemoveMatcher)
                         .match(MatcherClientError.class,    this::handleMatcherClientError)
                         .match(ParsedMessage.class,         this::handleParsedMessage)
 
@@ -74,21 +84,92 @@ public class EventsDispatcher extends AbstractPersistentActor{
      *                 HANDLERS                  *
      * ========================================= */
 
-    private void handleRemoveMatcher(RemoveMatcherCmd cmd) {
+    private void handleRemoveMatcher(RemoveClientMatcherCmd cmd) {
         matchersRouter = matchersRouter.removeRoutee(cmd.getMatcher());
         cmd.getMatcher().tell(PoisonPill.getInstance(), getSelf());
+
+        RemoveClientEvt evt = RemoveClientEvt.builder()
+                .clientPath(cmd.clientPath)
+                .build();
+
+        persist(evt, event -> {
+            clientsMatchersData.removeClientMatcher(event);
+        });
 
     }
 
     private void handleMatcherClientError(MatcherClientError message) {
         getSelf().tell(
-                RemoveMatcherCmd.builder().matcher(message.getMatcher()).build(),
+                RemoveClientMatcherCmd.builder().matcher(message.getMatcher()).build(),
                 ActorRef.noSender()
         );
     }
 
     private void handleParsedMessage(ParsedMessage msg) {
-        throw new NotImplementedException();
+
+        ActorRef sender = getSender();
+
+        ActorRef mediator = getContext().actorOf(
+                DispatcherMediator.props(matchersRouter, getSelf(), msg)
+        );
+
+        Future<Object> broadcastF = Patterns.ask(
+                mediator,
+                DispatcherMediator.StartBroadcastMessage.builder().build(),
+                Timeout.apply(6, TimeUnit.SECONDS)
+        );
+
+        broadcastF.onSuccess(
+                success(
+                        message -> {
+
+                            if (message instanceof DispatcherMediator.BroadcastingFinished)
+                                sender.tell(
+                                        AbstractMessageParser.ClientMessageSuccessResponse.builder()
+                                                .build(),
+                                        getSelf()
+                                );
+                            else if (message instanceof DispatcherMediator.FailureResultBroadcasting){
+
+                                sender.tell(
+                                        AbstractMessageParser.ClientMessageFailureResponse.builder()
+                                                .error(new RuntimeException("Not all matchers answer on broadcasting"))
+                                                .build(),
+                                        getSelf()
+                                );
+
+//                                List<ActorRef> marchersWithoutAnswer = ((DispatcherMediator.FailureResultBroadcasting) message).getMarchersWithoutAnswer();
+//
+//                                marchersWithoutAnswer.forEach(
+//                                        actorRef -> {
+//                                            log.error("Actor matcher: {} timeout message broadcasting. Delete it.", actorRef);
+//                                            getSelf().tell(
+//                                                    RemoveClientMatcherCmd.builder()
+//                                                            .matcher(actorRef)
+//                                                            .build(),
+//                                                    getSelf()
+//                                            );
+//                                        }
+//                                );
+                            }
+                        }
+                ),
+                ds
+        );
+
+        broadcastF.onFailure(
+                failure(
+                     throwable -> {
+                         sender.tell(
+                                 AbstractMessageParser.ClientMessageFailureResponse.builder()
+                                         .error(throwable)
+                                         .build(),
+                                 getSelf()
+                         );
+                     }
+                ), ds
+        );
+
     }
 
     private void handleSubscribeRequestMessage(SubscribeRequestCmd msg) {
@@ -126,8 +207,11 @@ public class EventsDispatcher extends AbstractPersistentActor{
 
     @Value
     @Builder
-    public static class RemoveMatcherCmd{
+    public static class RemoveClientMatcherCmd {
+        @NonNull
         ActorRef matcher;
+        @NonNull
+        ActorPath clientPath;
     }
 
     @Value
@@ -172,6 +256,10 @@ public class EventsDispatcher extends AbstractPersistentActor{
             matchersMap.put(event.clientPath, event.matcherProps);
         }
 
+        public void removeClientMatcher(RemoveClientEvt event) {
+            matchersMap.remove(event.getClientPath());
+        }
+
         public int size(){
             return matchersMap.size();
         }
@@ -200,6 +288,12 @@ public class EventsDispatcher extends AbstractPersistentActor{
         Props matcherProps;
     }
 
+    @Value
+    @Builder
+    public static class RemoveClientEvt implements Serializable {
+        @NonNull
+        ActorPath clientPath;
+    }
 
     /* ========================================= *
      *                 QUERIES                   *

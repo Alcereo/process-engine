@@ -66,7 +66,7 @@ public abstract class AbstractEventDispatcherMatcher<M_TYPE, RESP_TYPE> extends 
 
 
                         if (response instanceof ClientResponseWithFinish)
-                            msgSender.tell(new ClientResponseWithFinish(msg), getSelf());
+                            msgSender.tell(new ClientResponseWithFinish(clientPath), getSelf());
                         else
                             msgSender.tell(new ClientResponse(msg), getSelf());
                     }),
@@ -90,7 +90,7 @@ public abstract class AbstractEventDispatcherMatcher<M_TYPE, RESP_TYPE> extends 
     @Value
     @Builder
     public static class ClientResponseWithFinish{
-        private final Object msg;
+        private final ActorPath clientPath;
     }
 
     @Value
