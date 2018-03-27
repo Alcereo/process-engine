@@ -23,6 +23,7 @@ public class DispatcherMediator extends AbstractActorWithTimers {
     private Router workers;
     private Integer requestCounter;
     private final ActorRef manager;
+    private ActorRef executorClient;
     private final ParsedMessage message;
     private Map<ActorRef, Boolean> requestMap = new HashMap<>();
 
@@ -59,7 +60,7 @@ public class DispatcherMediator extends AbstractActorWithTimers {
     }
 
     private void handleTrigger(TimeoutTriggerMessage triggerMessage) {
-        manager.tell(
+        executorClient.tell(
                 FailureResultBroadcasting.builder()
                         .marchersWithoutAnswer(
                                 requestMap.entrySet().stream()
@@ -75,7 +76,7 @@ public class DispatcherMediator extends AbstractActorWithTimers {
 
     private void handleBroadcasting(StartBroadcastMessage msg) {
         workers.route(new Broadcast(message), getSelf());
-        getSender().tell(new BroadcastStarting(), getSelf());
+        executorClient = getSender();
 
         getTimers().startSingleTimer(
                 "timeout-trigger",
@@ -122,7 +123,7 @@ public class DispatcherMediator extends AbstractActorWithTimers {
         }
 
         if (requestCounter==0){
-            manager.tell(new SuccessResultBroadcasting(), getSelf());
+            executorClient.tell(new BroadcastingFinished(), getSelf());
             getContext().stop(getSelf());
         }
     }
@@ -133,17 +134,13 @@ public class DispatcherMediator extends AbstractActorWithTimers {
     }
 
     @Value
-    public static class SuccessResultBroadcasting {
+    public static class BroadcastingFinished {
     }
 
     @Value
     @Builder
     public static class FailureResultBroadcasting {
         List<ActorRef> marchersWithoutAnswer;
-    }
-
-    @Value
-    public static class BroadcastStarting {
     }
 
     @Value

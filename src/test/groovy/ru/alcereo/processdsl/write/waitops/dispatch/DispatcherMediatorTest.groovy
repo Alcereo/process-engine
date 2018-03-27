@@ -15,6 +15,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
     void testBroadcastAll() {
 
         def managerStub = new TestKit(system)
+        def executorClientStub = new TestKit(system)
 
         def matcherStubList = []
         Router router = new Router(new RoundRobinRoutingLogic())
@@ -32,11 +33,10 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
                 "mediator-actor"
         )
 
-        managerStub.send(
+        executorClientStub.send(
                 mediatorActor,
                 DispatcherMediator.StartBroadcastMessage.builder().build()
         )
-        managerStub.expectMsgClass(DispatcherMediator.BroadcastStarting)
 
         matcherStubList.each {
             TestKit stub ->
@@ -48,7 +48,9 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
                 )
         }
 
-        managerStub.expectMsgClass(DispatcherMediator.SuccessResultBroadcasting)
+        executorClientStub.expectMsgClass(DispatcherMediator.BroadcastingFinished)
+
+        Thread.sleep(100)
 
         assertTrue(
                 mediatorActor.isTerminated()
@@ -59,6 +61,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
     void testClientResponseFailure() {
 
         def managerStub = new TestKit(system)
+        def executorClientStub = new TestKit(system)
 
         def matcherStubList = []
         Router router = new Router(new RoundRobinRoutingLogic())
@@ -76,11 +79,10 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
                 "mediator-actor"
         )
 
-        managerStub.send(
+        executorClientStub.send(
                 mediatorActor,
                 DispatcherMediator.StartBroadcastMessage.builder().build()
         )
-        managerStub.expectMsgClass(DispatcherMediator.BroadcastStarting)
 
         matcherStubList.each {
             TestKit stub ->
@@ -98,7 +100,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
                 )
         }
 
-        managerStub.expectMsgClass(DispatcherMediator.SuccessResultBroadcasting)
+        executorClientStub.expectMsgClass(DispatcherMediator.BroadcastingFinished)
 
         Thread.sleep(100)
 
@@ -111,6 +113,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
     void testClientResponseWithFinish() {
 
         def managerStub = new TestKit(system)
+        def executorClientStub = new TestKit(system)
 
         def matcherStubList = []
         Router router = new Router(new RoundRobinRoutingLogic())
@@ -128,11 +131,10 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
                 "mediator-actor"
         )
 
-        managerStub.send(
+        executorClientStub.send(
                 mediatorActor,
                 DispatcherMediator.StartBroadcastMessage.builder().build()
         )
-        managerStub.expectMsgClass(DispatcherMediator.BroadcastStarting)
 
         matcherStubList.each {
             TestKit stub ->
@@ -150,7 +152,9 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
                 )
         }
 
-        managerStub.expectMsgClass(DispatcherMediator.SuccessResultBroadcasting)
+        executorClientStub.expectMsgClass(DispatcherMediator.BroadcastingFinished)
+
+        Thread.sleep(100)
 
         assertTrue(
                 mediatorActor.isTerminated()
@@ -161,6 +165,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
     void testTimeOutResult() {
 
         def managerStub = new TestKit(system)
+        def executorClientStub = new TestKit(system)
 
         List<TestKit> matcherStubList = []
         Router router = new Router(new RoundRobinRoutingLogic())
@@ -178,11 +183,10 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
                 "mediator-actor"
         )
 
-        managerStub.send(
+        executorClientStub.send(
                 mediatorActor,
                 DispatcherMediator.StartBroadcastMessage.builder().build()
         )
-        managerStub.expectMsgClass(DispatcherMediator.BroadcastStarting)
 
         matcherStubList.each {
             TestKit stub ->
@@ -205,13 +209,13 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
         matcherStubList.remove(5)
 
 
-        def resultMesage = managerStub.expectMsgClass(
+        def resultMessage = executorClientStub.expectMsgClass(
                 FiniteDuration.apply(6, TimeUnit.SECONDS),
                 DispatcherMediator.FailureResultBroadcasting
         )
 
         assertEquals(
-                resultMesage.getMarchersWithoutAnswer().sort(),
+                resultMessage.getMarchersWithoutAnswer().sort(),
                 matcherStubList.collect{ it.getRef() }.sort()
         )
 
@@ -220,4 +224,5 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
         )
 
     }
+
 }
