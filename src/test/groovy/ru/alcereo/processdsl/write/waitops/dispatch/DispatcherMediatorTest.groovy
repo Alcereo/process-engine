@@ -141,7 +141,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
                 stub.expectMsg(message)
                 stub.reply(
                         AbstractEventDispatcherMatcher.ClientResponseWithFinish.builder()
-                                .msg(message)
+                                .clientPath(new TestKit(system).getRef().path())
                                 .build()
                 )
 
