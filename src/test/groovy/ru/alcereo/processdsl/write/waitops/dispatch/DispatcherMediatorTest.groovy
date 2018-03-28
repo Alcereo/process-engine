@@ -225,4 +225,31 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
 
     }
 
+    void testTestEmptyRouters() {
+
+        def managerStub = new TestKit(system)
+        def executorClientStub = new TestKit(system)
+
+        Router router = new Router(new RoundRobinRoutingLogic())
+
+        def message = new ParsedMessage(){}
+        def mediatorActor = system.actorOf(
+                DispatcherMediator.props(router, managerStub.getRef(), message),
+                "mediator-actor"
+        )
+
+        executorClientStub.send(
+                mediatorActor,
+                DispatcherMediator.StartBroadcastMessage.builder().build()
+        )
+
+        executorClientStub.expectMsgClass(DispatcherMediator.BroadcastingFinished)
+
+        Thread.sleep(100)
+
+        assertTrue(
+                mediatorActor.isTerminated()
+        )
+
+    }
 }

@@ -78,6 +78,11 @@ public class DispatcherMediator extends AbstractActorWithTimers {
         workers.route(new Broadcast(message), getSelf());
         executorClient = getSender();
 
+        if (workers.routees().size()==0) {
+            finishBroadcasting();
+            return;
+        }
+
         getTimers().startSingleTimer(
                 "timeout-trigger",
                 new TimeoutTriggerMessage(),
@@ -124,9 +129,13 @@ public class DispatcherMediator extends AbstractActorWithTimers {
         }
 
         if (requestCounter==0){
-            executorClient.tell(new BroadcastingFinished(), getSelf());
-            getContext().stop(getSelf());
+            finishBroadcasting();
         }
+    }
+
+    private void finishBroadcasting(){
+        executorClient.tell(new BroadcastingFinished(), getSelf());
+        getContext().stop(getSelf());
     }
 
     @Value
