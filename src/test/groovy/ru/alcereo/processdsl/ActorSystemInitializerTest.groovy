@@ -11,6 +11,15 @@ abstract class ActorSystemInitializerTest extends GroovyTestCase{
 
     ActorSystem system
 
+    static String messageDeviceStateFineJsonText = getClass()
+            .getResource("/test-data/message-device-state-fine.json").text
+
+    static String messageDeviceStateErrorJsonText = getClass()
+            .getResource("/test-data/message-device-state-error.json").text
+
+    static String messageTicketCreateJsonText = getClass()
+            .getResource("/test-data/ticket-create-message.json").text
+
     @Before
     void setUp() throws Exception {
         def config = ConfigFactory.load("test-config")

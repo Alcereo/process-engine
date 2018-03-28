@@ -3,6 +3,7 @@ package ru.alcereo.processdsl.write.waitops.dispatch;
 import akka.actor.ActorPath;
 import akka.actor.Props;
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
 import ru.alcereo.processdsl.write.waitops.parse.DeviceStateMessageParser;
 
@@ -16,12 +17,13 @@ public class DeviceFineStateMatcher extends AbstractEventDispatcherMatcher<Devic
             String deviceId
     ){
         return Props.create(
-                DeviceFineStateMatcher.class, clientPath, messageClass, deviceId
+                DeviceFineStateMatcher.class,
+                () -> new DeviceFineStateMatcher(clientPath, messageClass, deviceId)
         );
     }
 
     @Builder(builderMethodName = "buildStrategy")
-    public static EventsDispatcher.MatcherStrategy strategy(String deviceId){
+    public static EventsDispatcher.MatcherStrategy strategy(@NonNull String deviceId){
         return clientPath ->
                 props(
                         clientPath,
