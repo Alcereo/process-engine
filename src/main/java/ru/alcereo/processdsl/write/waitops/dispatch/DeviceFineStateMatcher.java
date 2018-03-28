@@ -3,10 +3,11 @@ package ru.alcereo.processdsl.write.waitops.dispatch;
 import akka.actor.ActorPath;
 import akka.actor.Props;
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
 import ru.alcereo.processdsl.write.waitops.parse.DeviceStateMessageParser;
 
-public class DeviceFineStateMatcher extends AbstractEventDispatcherMatcher<DeviceStateMessageParser.DeviceStateChangeMessage, DeviceFineStateMatcher.DeviceStateFineEvent> {
+public class DeviceFineStateMatcher extends AbstractEventMatcher<DeviceStateMessageParser.DeviceStateChangeMessage, DeviceFineStateMatcher.DeviceStateFineEvent> {
 
     private String deviceId;
 
@@ -16,12 +17,13 @@ public class DeviceFineStateMatcher extends AbstractEventDispatcherMatcher<Devic
             String deviceId
     ){
         return Props.create(
-                DeviceFineStateMatcher.class, clientPath, messageClass, deviceId
+                DeviceFineStateMatcher.class,
+                () -> new DeviceFineStateMatcher(clientPath, messageClass, deviceId)
         );
     }
 
     @Builder(builderMethodName = "buildStrategy")
-    public static EventsDispatcher.MatcherStrategy strategy(String deviceId){
+    public static EventsDispatcher.MatcherStrategy strategy(@NonNull String deviceId){
         return clientPath ->
                 props(
                         clientPath,
@@ -30,7 +32,7 @@ public class DeviceFineStateMatcher extends AbstractEventDispatcherMatcher<Devic
                 );
     }
 
-    public DeviceFineStateMatcher(ActorPath clientPath, Class<DeviceStateMessageParser.DeviceStateChangeMessage> messageClass, String deviceId) {
+    private DeviceFineStateMatcher(ActorPath clientPath, Class<DeviceStateMessageParser.DeviceStateChangeMessage> messageClass, String deviceId) {
         super(clientPath, messageClass);
         this.deviceId = deviceId;
     }

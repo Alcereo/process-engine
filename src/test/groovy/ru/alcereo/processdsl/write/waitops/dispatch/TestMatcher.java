@@ -8,7 +8,7 @@ import lombok.NonNull;
 import java.util.function.Function;
 
 
-public class TestMatcher<T,R> extends AbstractEventDispatcherMatcher<T, R> {
+public class TestMatcher<T,R> extends AbstractEventMatcher<T, R> {
 
     private final Function<T, Boolean> eventMatches;
     private final Function<T, R> buildResponseMessageFrom;

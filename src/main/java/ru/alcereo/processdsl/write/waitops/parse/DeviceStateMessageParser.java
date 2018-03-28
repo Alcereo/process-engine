@@ -22,11 +22,11 @@ public class DeviceStateMessageParser extends AbstractMessageParser<DeviceStateM
     }
 
     @Override
-    DeviceStateChangeMessage parseMessage(MessageConverter.StringTransportMessage message) throws Exception {
+    DeviceStateChangeMessage parseMessage(ParsingDispatcher.StringTransportMessage message) throws Exception {
         return new Gson().fromJson(message.getMessage(), DeviceStateChangeMessage.class);
     }
 
-    public static MessageConverter.MetadataMatcher getMatcher(){
+    public static ParsingDispatcher.MetadataMatcher getMatcher(){
         return metadata -> metadata.getType().equals(MESSAGE_TYPE);
     }
 

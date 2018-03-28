@@ -72,7 +72,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                         .strategy(matcher)
                         .build()
         )
-        stubClient.expectMsgClass(EventsDispatcher.SuccessCmd)
+        stubClient.expectMsgClass(EventsDispatcher.SuccessCmdResponse)
 
 //      Данные клиента сохранились
         stubManager.send(
@@ -115,7 +115,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                         .strategy(matcher)
                         .build()
         )
-        stubClient.expectMsgClass(EventsDispatcher.SuccessCmd)
+        stubClient.expectMsgClass(EventsDispatcher.SuccessCmdResponse)
 
 //      Убиваем диспетчера и запускаем заново
 
@@ -169,7 +169,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                         .strategy(matcher)
                         .build()
         )
-        stubClient.expectMsgClass(EventsDispatcher.SuccessCmd)
+        stubClient.expectMsgClass(EventsDispatcher.SuccessCmdResponse)
 
 
         def testString = "Test message"
@@ -184,7 +184,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                 testString,
                 clientMessage
         )
-        stubClient.reply(AbstractEventDispatcherMatcher.ClientResponse.builder().build())
+        stubClient.reply(AbstractEventMatcher.ClientResponse.builder().build())
 
         stubMessager.expectMsgClass(AbstractMessageParser.ClientMessageSuccessResponse)
 
@@ -200,7 +200,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                         .strategy(matcher)
                         .build()
         )
-        stubClient.expectMsgClass(EventsDispatcher.SuccessCmd)
+        stubClient.expectMsgClass(EventsDispatcher.SuccessCmdResponse)
 
 
         def testString = "Test message"
@@ -217,7 +217,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                 testString,
                 clientMessage
         )
-        stubClient.reply(AbstractEventDispatcherMatcher.ClientResponse.builder().build())
+        stubClient.reply(AbstractEventMatcher.ClientResponse.builder().build())
 
         stubMessager.expectMsgClass(AbstractMessageParser.ClientMessageSuccessResponse)
 
@@ -233,7 +233,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                 testString,
                 clientMessage
         )
-        stubClient.reply(AbstractEventDispatcherMatcher.ClientResponse.builder().build())
+        stubClient.reply(AbstractEventMatcher.ClientResponse.builder().build())
 
         stubMessager.expectMsgClass(AbstractMessageParser.ClientMessageSuccessResponse)
 
@@ -249,7 +249,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                         .strategy(matcher)
                         .build()
         )
-        stubClient.expectMsgClass(EventsDispatcher.SuccessCmd)
+        stubClient.expectMsgClass(EventsDispatcher.SuccessCmdResponse)
 
         //      Убиваем диспетчера и запускаем заново
 
@@ -276,7 +276,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                 testString,
                 clientMessage
         )
-        stubClient.reply(AbstractEventDispatcherMatcher.ClientResponse.builder().build())
+        stubClient.reply(AbstractEventMatcher.ClientResponse.builder().build())
 
         stubMessager.expectMsgClass(AbstractMessageParser.ClientMessageSuccessResponse)
 
@@ -292,7 +292,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                         .strategy(matcher)
                         .build()
         )
-        stubClient.expectMsgClass(EventsDispatcher.SuccessCmd)
+        stubClient.expectMsgClass(EventsDispatcher.SuccessCmdResponse)
 
 
         def testString = "Test message"
@@ -307,7 +307,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                 testString,
                 clientMessage
         )
-        stubClient.reply(AbstractEventDispatcherMatcher.ClientResponseWithFinish.builder().build())
+        stubClient.reply(AbstractEventMatcher.ClientResponseWithFinish.builder().build())
 
 
         stubMessager.expectMsgClass(AbstractMessageParser.ClientMessageSuccessResponse)
@@ -353,7 +353,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                         .strategy(matcher)
                         .build()
         )
-        stubClient.expectMsgClass(EventsDispatcher.SuccessCmd)
+        stubClient.expectMsgClass(EventsDispatcher.SuccessCmdResponse)
 
 
         def testString = "Test message"
@@ -369,7 +369,7 @@ class EventsDispatcherTest extends ActorSystemInitializerTest {
                 clientMessage
         )
 //        --- Don't respond ---
-//        stubClient.reply(AbstractEventDispatcherMatcher.ClientResponse.builder().build())
+//        stubClient.reply(AbstractEventMatcher.ClientResponse.builder().build())
 
         def clazz = stubMessager.expectMsgClass(
                 FiniteDuration.apply(6, TimeUnit.SECONDS),

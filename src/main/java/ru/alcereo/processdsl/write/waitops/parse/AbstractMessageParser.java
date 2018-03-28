@@ -8,6 +8,7 @@ import akka.util.Timeout;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
+import ru.alcereo.processdsl.write.waitops.parse.exceptions.WrongResponseMessageType;
 import scala.concurrent.ExecutionContext;
 import scala.concurrent.Future;
 
@@ -33,14 +34,17 @@ public abstract class AbstractMessageParser<T> extends AbstractLoggingActor{
     public Receive createReceive() {
         return LoggingReceive.create(
                 receiveBuilder()
-                        .match(MessageConverter.StringTransportMessage.class, this::handleJsonObjectMessage)
+                        .match(ParsingDispatcher.StringTransportMessage.class, this::handleJsonObjectMessage)
+                        .matchAny(o -> {
+                            throw new WrongResponseMessageType(o.getClass());
+                        })
                         .build(),
                 getContext()
         );
     }
 
 
-    private void handleJsonObjectMessage(MessageConverter.StringTransportMessage message) {
+    private void handleJsonObjectMessage(ParsingDispatcher.StringTransportMessage message) {
 
         T response;
         final ActorRef sender = getSender();
@@ -100,7 +104,7 @@ public abstract class AbstractMessageParser<T> extends AbstractLoggingActor{
         );
     }
 
-    abstract T parseMessage(MessageConverter.StringTransportMessage message) throws Exception;
+    abstract T parseMessage(ParsingDispatcher.StringTransportMessage message) throws Exception;
 
     @Value
     @Builder
@@ -116,19 +120,14 @@ public abstract class AbstractMessageParser<T> extends AbstractLoggingActor{
     @Value
     @Builder
     public static class SuccessResponse{
-        MessageConverter.StringTransportMessage message;
+        ParsingDispatcher.StringTransportMessage message;
     }
 
     @Value
     @Builder
     public static class FailureResponse{
-        MessageConverter.StringTransportMessage message;
+        ParsingDispatcher.StringTransportMessage message;
         Throwable error;
     }
 
-    public static class WrongResponseMessageType extends Exception {
-        public WrongResponseMessageType(Class aClass) {
-            super("Get wrong request message type: "+aClass.getName()+". Expected: "+ClientMessageSuccessResponse.class.getName());
-        }
-    }
 }

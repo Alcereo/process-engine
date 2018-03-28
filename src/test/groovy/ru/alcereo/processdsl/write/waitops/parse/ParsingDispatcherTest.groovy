@@ -5,7 +5,7 @@ import akka.testkit.javadsl.TestKit
 import com.google.gson.JsonSyntaxException
 import ru.alcereo.processdsl.ActorSystemInitializerTest
 
-class MessageConverterTest extends ActorSystemInitializerTest {
+class ParsingDispatcherTest extends ActorSystemInitializerTest {
 
     def messageText = getClass().getResource("/test-data/message-device-state-fine.json").text
 
@@ -35,7 +35,7 @@ class MessageConverterTest extends ActorSystemInitializerTest {
                         .build()
 
         converterActor = system.actorOf(
-                MessageConverter.props(config, consumerStub.getRef()),
+                ParsingDispatcher.props(config, consumerStub.getRef()),
                 "message-converter"
         )
 
@@ -45,9 +45,9 @@ class MessageConverterTest extends ActorSystemInitializerTest {
 
         producerStub.send(
                 converterActor,
-                MessageConverter.StringTransportMessage.builder().
+                ParsingDispatcher.StringTransportMessage.builder().
                         metadata(
-                                MessageConverter.MessageMetadata.builder()
+                                ParsingDispatcher.MessageMetadata.builder()
                                         .sender("device-service")
                                         .type(DeviceStateMessageParser.MESSAGE_TYPE)
                                         .build()
@@ -73,7 +73,7 @@ class MessageConverterTest extends ActorSystemInitializerTest {
                 deviceStateChangeMessage.getState()
         )
 
-        producerStub.expectMsgClass(MessageConverter.SuccessHandlingMessage)
+        producerStub.expectMsgClass(ParsingDispatcher.SuccessHandlingMessage)
 
 
     }
@@ -82,9 +82,9 @@ class MessageConverterTest extends ActorSystemInitializerTest {
 
         producerStub.send(
                 converterActor,
-                MessageConverter.StringTransportMessage.builder().
+                ParsingDispatcher.StringTransportMessage.builder().
                         metadata(
-                                MessageConverter.MessageMetadata.builder()
+                                ParsingDispatcher.MessageMetadata.builder()
                                         .sender("device-service")
                                         .type(DeviceStateMessageParser.MESSAGE_TYPE)
                                         .build()
@@ -93,7 +93,7 @@ class MessageConverterTest extends ActorSystemInitializerTest {
         )
 
 
-        def falureMessage = producerStub.expectMsgClass(MessageConverter.FailureHandlingMessage)
+        def falureMessage = producerStub.expectMsgClass(ParsingDispatcher.FailureHandlingMessage)
         assertTrue(
                 falureMessage.error instanceof JsonSyntaxException
         )
@@ -104,9 +104,9 @@ class MessageConverterTest extends ActorSystemInitializerTest {
 
     void testParserNotFoundTest() {
 
-        def transportMessage = MessageConverter.StringTransportMessage.builder().
+        def transportMessage = ParsingDispatcher.StringTransportMessage.builder().
                 metadata(
-                        MessageConverter.MessageMetadata.builder()
+                        ParsingDispatcher.MessageMetadata.builder()
                                 .sender("device-service")
                                 .type("unsupported")
                                 .build()
@@ -118,7 +118,7 @@ class MessageConverterTest extends ActorSystemInitializerTest {
                 transportMessage
         )
 
-        def resultMsg = producerStub.expectMsgClass(MessageConverter.ParserNotFoundResult)
+        def resultMsg = producerStub.expectMsgClass(ParsingDispatcher.ParserNotFoundResult)
         assertEquals(
                 resultMsg.transportMessage,
                 transportMessage

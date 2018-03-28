@@ -13,7 +13,7 @@ public class CreateTicketMessageParser extends AbstractMessageParser<CreateTicke
 
     public final static String MESSAGE_TYPE = "ticket-create-message";
 
-    public CreateTicketMessageParser(ActorRef clientRef) {
+    private CreateTicketMessageParser(ActorRef clientRef) {
         super(clientRef);
     }
 
@@ -22,11 +22,11 @@ public class CreateTicketMessageParser extends AbstractMessageParser<CreateTicke
     }
 
     @Override
-    CreateTicketMessage parseMessage(MessageConverter.StringTransportMessage message) throws Exception {
+    CreateTicketMessage parseMessage(ParsingDispatcher.StringTransportMessage message) throws Exception {
         return new Gson().fromJson(message.getMessage(), CreateTicketMessage.class);
     }
 
-    public static MessageConverter.MetadataMatcher getMatcher(){
+    public static ParsingDispatcher.MetadataMatcher getMatcher(){
         return metadata -> metadata.getType().equals(MESSAGE_TYPE);
     }
 
