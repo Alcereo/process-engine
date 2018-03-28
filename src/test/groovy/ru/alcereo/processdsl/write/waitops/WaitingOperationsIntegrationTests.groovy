@@ -3,12 +3,12 @@ package ru.alcereo.processdsl.write.waitops
 import akka.actor.ActorRef
 import akka.testkit.javadsl.TestKit
 import ru.alcereo.processdsl.ActorSystemInitializerTest
-import ru.alcereo.processdsl.write.waitops.dispatch.AbstractEventDispatcherMatcher
+import ru.alcereo.processdsl.write.waitops.dispatch.AbstractEventMatcher
 import ru.alcereo.processdsl.write.waitops.dispatch.DeviceFineStateMatcher
 import ru.alcereo.processdsl.write.waitops.dispatch.EventsDispatcher
 import ru.alcereo.processdsl.write.waitops.parse.CreateTicketMessageParser
 import ru.alcereo.processdsl.write.waitops.parse.DeviceStateMessageParser
-import ru.alcereo.processdsl.write.waitops.parse.MessageConverter
+import ru.alcereo.processdsl.write.waitops.parse.ParsingDispatcher
 import ru.alcereo.processdsl.write.waitops.parse.PooledSupervisoredCreatorWrapper
 
 class WaitingOperationsIntegrationTests extends ActorSystemInitializerTest {
@@ -53,7 +53,7 @@ class WaitingOperationsIntegrationTests extends ActorSystemInitializerTest {
                         .build()
 
         converterActor = system.actorOf(
-                MessageConverter.props(config, eventDispatcher),
+                ParsingDispatcher.props(config, eventDispatcher),
                 "message-converter"
         )
 
@@ -69,15 +69,15 @@ class WaitingOperationsIntegrationTests extends ActorSystemInitializerTest {
                                 .build()
                 ).build()
         )
-        stubClient.expectMsgClass(EventsDispatcher.SuccessCmd)
+        stubClient.expectMsgClass(EventsDispatcher.SuccessCmdResponse)
     }
 
     def static sendDeviceStateFineMessage(stubTransportActor, converterActor){
         stubTransportActor.send(
                 converterActor,
-                MessageConverter.StringTransportMessage.builder()
+                ParsingDispatcher.StringTransportMessage.builder()
                         .metadata(
-                        MessageConverter.MessageMetadata.builder()
+                        ParsingDispatcher.MessageMetadata.builder()
                                 .type(DeviceStateMessageParser.MESSAGE_TYPE)
                                 .sender("Some-service")
                                 .build()
@@ -95,9 +95,9 @@ class WaitingOperationsIntegrationTests extends ActorSystemInitializerTest {
 
 
         stubClient.expectMsgClass(DeviceFineStateMatcher.DeviceStateFineEvent)
-        stubClient.reply(AbstractEventDispatcherMatcher.ClientResponse.builder().build())
+        stubClient.reply(AbstractEventMatcher.ClientResponse.builder().build())
 
-        stubTransportActor.expectMsgClass(MessageConverter.SuccessHandlingMessage)
+        stubTransportActor.expectMsgClass(ParsingDispatcher.SuccessHandlingMessage)
 
     }
 
@@ -107,7 +107,7 @@ class WaitingOperationsIntegrationTests extends ActorSystemInitializerTest {
 
         stubClient.expectNoMsg()
 
-        stubTransportActor.expectMsgClass(MessageConverter.SuccessHandlingMessage)
+        stubTransportActor.expectMsgClass(ParsingDispatcher.SuccessHandlingMessage)
 
 
 
@@ -116,9 +116,9 @@ class WaitingOperationsIntegrationTests extends ActorSystemInitializerTest {
         sendDeviceStateFineMessage stubTransportActor, converterActor
 
         stubClient.expectMsgClass(DeviceFineStateMatcher.DeviceStateFineEvent)
-        stubClient.reply(AbstractEventDispatcherMatcher.ClientResponse.builder().build())
+        stubClient.reply(AbstractEventMatcher.ClientResponse.builder().build())
 
-        stubTransportActor.expectMsgClass(MessageConverter.SuccessHandlingMessage)
+        stubTransportActor.expectMsgClass(ParsingDispatcher.SuccessHandlingMessage)
 
     }
 
@@ -130,14 +130,14 @@ class WaitingOperationsIntegrationTests extends ActorSystemInitializerTest {
 
 
         stubClient.expectMsgClass(DeviceFineStateMatcher.DeviceStateFineEvent)
-        stubClient.reply(AbstractEventDispatcherMatcher.ClientResponseWithFinish.builder().build())
+        stubClient.reply(AbstractEventMatcher.ClientResponseWithFinish.builder().build())
 
-        stubTransportActor.expectMsgClass(MessageConverter.SuccessHandlingMessage)
+        stubTransportActor.expectMsgClass(ParsingDispatcher.SuccessHandlingMessage)
 
 
         sendDeviceStateFineMessage stubTransportActor, converterActor
 
-        stubTransportActor.expectMsgClass(MessageConverter.SuccessHandlingMessage)
+        stubTransportActor.expectMsgClass(ParsingDispatcher.SuccessHandlingMessage)
 
         stubClient.expectNoMsg()
 
@@ -152,18 +152,18 @@ class WaitingOperationsIntegrationTests extends ActorSystemInitializerTest {
         sendDeviceStateFineMessage stubTransportActor, converterActor
 
         stubClient.expectMsgClass(DeviceFineStateMatcher.DeviceStateFineEvent)
-        stubClient.reply(AbstractEventDispatcherMatcher.ClientResponse.builder().build())
+        stubClient.reply(AbstractEventMatcher.ClientResponse.builder().build())
 
-        stubTransportActor.expectMsgClass(MessageConverter.SuccessHandlingMessage)
+        stubTransportActor.expectMsgClass(ParsingDispatcher.SuccessHandlingMessage)
 
 
 
         sendDeviceStateFineMessage stubTransportActor, converterActor
 
         stubClient.expectMsgClass(DeviceFineStateMatcher.DeviceStateFineEvent)
-        stubClient.reply(AbstractEventDispatcherMatcher.ClientResponse.builder().build())
+        stubClient.reply(AbstractEventMatcher.ClientResponse.builder().build())
 
-        stubTransportActor.expectMsgClass(MessageConverter.SuccessHandlingMessage)
+        stubTransportActor.expectMsgClass(ParsingDispatcher.SuccessHandlingMessage)
 
     }
 }

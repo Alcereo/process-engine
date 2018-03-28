@@ -7,7 +7,7 @@ import lombok.NonNull;
 import lombok.Value;
 import ru.alcereo.processdsl.write.waitops.parse.DeviceStateMessageParser;
 
-public class DeviceFineStateMatcher extends AbstractEventDispatcherMatcher<DeviceStateMessageParser.DeviceStateChangeMessage, DeviceFineStateMatcher.DeviceStateFineEvent> {
+public class DeviceFineStateMatcher extends AbstractEventMatcher<DeviceStateMessageParser.DeviceStateChangeMessage, DeviceFineStateMatcher.DeviceStateFineEvent> {
 
     private String deviceId;
 
@@ -32,7 +32,7 @@ public class DeviceFineStateMatcher extends AbstractEventDispatcherMatcher<Devic
                 );
     }
 
-    public DeviceFineStateMatcher(ActorPath clientPath, Class<DeviceStateMessageParser.DeviceStateChangeMessage> messageClass, String deviceId) {
+    private DeviceFineStateMatcher(ActorPath clientPath, Class<DeviceStateMessageParser.DeviceStateChangeMessage> messageClass, String deviceId) {
         super(clientPath, messageClass);
         this.deviceId = deviceId;
     }

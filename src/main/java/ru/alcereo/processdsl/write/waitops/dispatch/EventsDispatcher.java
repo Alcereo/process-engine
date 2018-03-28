@@ -27,12 +27,16 @@ import java.util.concurrent.TimeUnit;
 import static ru.alcereo.processdsl.Utils.failure;
 import static ru.alcereo.processdsl.Utils.success;
 
+/**
+ * Main class to subscribe client on getting concrete events and messages.
+ *
+ * Clients is subscribing using {@link SubscribeRequestCmd} command object that
+ * contains {@link MatcherStrategy} functional interface realisation to create Matcher Actor Props
+ */
 public class EventsDispatcher extends AbstractPersistentActor{
 
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
     private ExecutionContext ds = getContext().dispatcher();
-
-    private Router matchersRouter = new Router(new RoundRobinRoutingLogic(), new ArrayList<>());
 
     private final String persistentId;
 
@@ -51,12 +55,16 @@ public class EventsDispatcher extends AbstractPersistentActor{
         return persistentId;
     }
 
+
+    private Router matchersRouter = new Router(new RoundRobinRoutingLogic(), new ArrayList<>());
+
     private ClientsMatchersData clientsMatchersData = new ClientsMatchersData();
 
     @Override
     public Receive createReceiveRecover() {
         return LoggingReceive.create(
                 receiveBuilder()
+//                        TODO: Add snapshot support
                         .match(AddClientMatcherEvt.class, this::recoverAddClientMatcherEvt)
                         .build(),
                 getContext()
@@ -110,12 +118,12 @@ public class EventsDispatcher extends AbstractPersistentActor{
         ActorRef sender = getSender();
 
         ActorRef mediator = getContext().actorOf(
-                DispatcherMediator.props(matchersRouter, getSelf(), msg)
+                DispatcherMatchersMediator.props(matchersRouter, getSelf(), msg)
         );
 
         Future<Object> broadcastF = Patterns.ask(
                 mediator,
-                DispatcherMediator.StartBroadcastMessage.builder().build(),
+                DispatcherMatchersMediator.StartBroadcastMessage.builder().build(),
                 Timeout.apply(6, TimeUnit.SECONDS)
         );
 
@@ -123,13 +131,13 @@ public class EventsDispatcher extends AbstractPersistentActor{
                 success(
                         message -> {
 
-                            if (message instanceof DispatcherMediator.BroadcastingFinished)
+                            if (message instanceof DispatcherMatchersMediator.BroadcastingFinished)
                                 sender.tell(
                                         AbstractMessageParser.ClientMessageSuccessResponse.builder()
                                                 .build(),
                                         getSelf()
                                 );
-                            else if (message instanceof DispatcherMediator.FailureResultBroadcasting){
+                            else if (message instanceof DispatcherMatchersMediator.FailureResultBroadcasting){
 
                                 sender.tell(
                                         AbstractMessageParser.ClientMessageFailureResponse.builder()
@@ -138,7 +146,8 @@ public class EventsDispatcher extends AbstractPersistentActor{
                                         getSelf()
                                 );
 
-//                                List<ActorRef> marchersWithoutAnswer = ((DispatcherMediator.FailureResultBroadcasting) message).getMarchersWithoutAnswer();
+//                                TODO: Need a strategy when mediator responding with timeout
+//                                List<ActorRef> marchersWithoutAnswer = ((DispatcherMatchersMediator.FailureResultBroadcasting) message).getMarchersWithoutAnswer();
 //
 //                                marchersWithoutAnswer.forEach(
 //                                        actorRef -> {
@@ -190,7 +199,7 @@ public class EventsDispatcher extends AbstractPersistentActor{
 
         persist(evt, event -> {
             clientsMatchersData.addClientMatcher(event);
-            sender.tell(new SuccessCmd(), getSelf());
+            sender.tell(new SuccessCmdResponse(), getSelf());
         });
     }
 
@@ -202,7 +211,7 @@ public class EventsDispatcher extends AbstractPersistentActor{
 
     @Value
     @Builder
-    public static class SuccessCmd{
+    public static class SuccessCmdResponse {
     }
 
     @Value
@@ -218,7 +227,7 @@ public class EventsDispatcher extends AbstractPersistentActor{
     @Builder
     public static class MatcherClientError{
         ActorRef matcher;
-        AbstractEventDispatcherMatcher.ClientResponseFailure message;
+        AbstractEventMatcher.ClientResponseFailure message;
     }
 
     /* ========================================= *

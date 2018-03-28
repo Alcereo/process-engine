@@ -9,22 +9,26 @@ import akka.util.Timeout;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
+import ru.alcereo.processdsl.write.waitops.parse.exceptions.WrongResponseMessageType;
 import scala.concurrent.ExecutionContext;
 import scala.concurrent.Future;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static ru.alcereo.processdsl.Utils.failure;
 import static ru.alcereo.processdsl.Utils.success;
 
-public class MessageConverter extends AbstractLoggingActor{
+public class ParsingDispatcher extends AbstractLoggingActor{
 
     private final ExecutionContext ds = getContext().dispatcher();
     private final List<ParsingEntry> parsersMap = new ArrayList<>();
 
-    public MessageConverter(Map<MetadataMatcher, ParserActorCreatorWrapper> parsersConfig,
-                            ActorRef messagesConsumer) {
+    private ParsingDispatcher(Map<MetadataMatcher, ParserActorCreatorWrapper> parsersConfig,
+                             ActorRef messagesConsumer) {
 
         parsersConfig.forEach((metadataMatcher, parserActorCreatorWrapper) ->
                 parsersMap.add(
@@ -40,8 +44,8 @@ public class MessageConverter extends AbstractLoggingActor{
     public static Props props(@NonNull Map<MetadataMatcher, ParserActorCreatorWrapper> parsersConfig,
                               @NonNull ActorRef messagesConsumer) {
 
-        return Props.create(MessageConverter.class, () ->
-                new MessageConverter(parsersConfig, messagesConsumer)
+        return Props.create(ParsingDispatcher.class, () ->
+                new ParsingDispatcher(parsersConfig, messagesConsumer)
         );
     }
 
@@ -50,6 +54,9 @@ public class MessageConverter extends AbstractLoggingActor{
         return LoggingReceive.create(
                 receiveBuilder()
                         .match(StringTransportMessage.class, this::handleTransportMessage)
+                        .matchAny(o -> {
+                            throw new WrongResponseMessageType(o.getClass());
+                        })
                         .build(),
                 getContext()
         );
@@ -134,6 +141,10 @@ public class MessageConverter extends AbstractLoggingActor{
         }
     }
 
+    /*=======================================================*
+     *                 TRANSPORT MESSAGES                    *
+     *=======================================================*/
+
     @Value
     @Builder
     public static class StringTransportMessage{
@@ -162,12 +173,18 @@ public class MessageConverter extends AbstractLoggingActor{
         StringTransportMessage transportMessage;
     }
 
+    /**
+     * Not only parsing success, but also message dispatching
+     */
     @Value
     @Builder
     public static class SuccessHandlingMessage{
         StringTransportMessage transportMessage;
     }
 
+    /**
+     * Parsing or message dispatching error
+     */
     @Value
     @Builder
     public static class FailureHandlingMessage{
@@ -192,15 +209,6 @@ public class MessageConverter extends AbstractLoggingActor{
 
     public interface ParserActorCreatorWrapper {
         ActorRef buildRef(ActorContext context, ActorRef messagesConsumer);
-    }
-
-    public static class WrongResponseMessageType extends Exception {
-        public WrongResponseMessageType(Class aClass) {
-            super("Get wrong request message type: "+aClass.getName()+". Expected: " +
-                    ""+AbstractMessageParser.SuccessResponse.class.getName()+", " +
-                    "or "+AbstractMessageParser.FailureResponse.class.getName()
-            );
-        }
     }
 
 }

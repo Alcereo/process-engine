@@ -16,13 +16,20 @@ import java.util.concurrent.TimeUnit;
 import static ru.alcereo.processdsl.Utils.failure;
 import static ru.alcereo.processdsl.Utils.success;
 
-public abstract class AbstractEventDispatcherMatcher<M_TYPE, RESP_TYPE> extends AbstractLoggingActor{
+/**
+ * Base class for "matcher" classes that take messages with type 'M_TYPE' check it with method {@link AbstractEventMatcher#eventMatches}
+ * and if it match his case, building message with type 'RESP_TYPE' with method {@link AbstractEventMatcher#buildResponseMessage}
+ *
+ * @param <M_TYPE> Type of the consumed and checked messages
+ * @param <RESP_TYPE> Type of the response messages to client, in case of success matching
+ */
+public abstract class AbstractEventMatcher<M_TYPE, RESP_TYPE> extends AbstractLoggingActor{
 
     private final ActorPath clientPath;
     private Class<M_TYPE> messageClass;
     private final ExecutionContext ds = getContext().dispatcher();
 
-    public AbstractEventDispatcherMatcher(ActorPath clientPath, Class<M_TYPE> messageClass) {
+    public AbstractEventMatcher(ActorPath clientPath, Class<M_TYPE> messageClass) {
         this.clientPath = clientPath;
         this.messageClass = messageClass;
     }

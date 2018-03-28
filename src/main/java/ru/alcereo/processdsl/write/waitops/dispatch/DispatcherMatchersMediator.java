@@ -18,16 +18,16 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public class DispatcherMediator extends AbstractActorWithTimers {
+public class DispatcherMatchersMediator extends AbstractActorWithTimers {
 
     private Router workers;
     private Integer requestCounter;
     private final ActorRef manager;
     private ActorRef executorClient;
-    private final ParsedMessage message;
+    private final Object message;
     private Map<ActorRef, Boolean> requestMap = new HashMap<>();
 
-    public DispatcherMediator(Router workers, ActorRef manager, ParsedMessage message) {
+    private DispatcherMatchersMediator(Router workers, ActorRef manager, Object message) {
 
         this.workers = workers;
         this.requestCounter = workers.routees().size();
@@ -41,7 +41,7 @@ public class DispatcherMediator extends AbstractActorWithTimers {
     }
 
     public static Props props(Router workers, ActorRef manager, ParsedMessage message){
-        return Props.create(DispatcherMediator.class, () -> new DispatcherMediator(workers, manager, message));
+        return Props.create(DispatcherMatchersMediator.class, () -> new DispatcherMatchersMediator(workers, manager, message));
     }
 
     @Override
@@ -50,10 +50,10 @@ public class DispatcherMediator extends AbstractActorWithTimers {
                 receiveBuilder()
                         .match(StartBroadcastMessage.class,                             this::handleBroadcasting)
                         .match(TimeoutTriggerMessage.class,                             this::handleTrigger)
-                        .match(AbstractEventDispatcherMatcher.MessageEmptyHandled.class,        this::handleMessageHandle)
-                        .match(AbstractEventDispatcherMatcher.ClientResponse.class,             this::handleClientResponse)
-                        .match(AbstractEventDispatcherMatcher.ClientResponseWithFinish.class,   this::handleClientResponseWithFinish)
-                        .match(AbstractEventDispatcherMatcher.ClientResponseFailure.class,      this::handleCliendResponseFailure)
+                        .match(AbstractEventMatcher.MessageEmptyHandled.class,        this::handleMessageHandle)
+                        .match(AbstractEventMatcher.ClientResponse.class,             this::handleClientResponse)
+                        .match(AbstractEventMatcher.ClientResponseWithFinish.class,   this::handleClientResponseWithFinish)
+                        .match(AbstractEventMatcher.ClientResponseFailure.class,      this::handleCliendResponseFailure)
                         .build(),
                 getContext()
         );
@@ -90,7 +90,7 @@ public class DispatcherMediator extends AbstractActorWithTimers {
         );
     }
 
-    private void handleClientResponseWithFinish(AbstractEventDispatcherMatcher.ClientResponseWithFinish message) {
+    private void handleClientResponseWithFinish(AbstractEventMatcher.ClientResponseWithFinish message) {
         manager.tell(
                 EventsDispatcher.RemoveClientMatcherCmd.builder()
                         .matcher(getSender())
@@ -102,7 +102,7 @@ public class DispatcherMediator extends AbstractActorWithTimers {
         countRequests(getSender());
     }
 
-    private void handleCliendResponseFailure(AbstractEventDispatcherMatcher.ClientResponseFailure message) {
+    private void handleCliendResponseFailure(AbstractEventMatcher.ClientResponseFailure message) {
         manager.tell(
                 EventsDispatcher.MatcherClientError.builder()
                         .matcher(getSender())
@@ -114,11 +114,11 @@ public class DispatcherMediator extends AbstractActorWithTimers {
         countRequests(getSender());
     }
 
-    private void handleClientResponse(AbstractEventDispatcherMatcher.ClientResponse message) {
+    private void handleClientResponse(AbstractEventMatcher.ClientResponse message) {
         countRequests(getSender());
     }
 
-    private void handleMessageHandle(AbstractEventDispatcherMatcher.MessageEmptyHandled message) {
+    private void handleMessageHandle(AbstractEventMatcher.MessageEmptyHandled message) {
         countRequests(getSender());
     }
 

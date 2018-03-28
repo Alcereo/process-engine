@@ -35,9 +35,9 @@ class AbstractMessageParserTest extends ActorSystemInitializerTest {
 
         managerStub.send(
                 testParserActor,
-                MessageConverter.StringTransportMessage.builder()
+                ParsingDispatcher.StringTransportMessage.builder()
                 .metadata(
-                        MessageConverter.MessageMetadata.builder()
+                        ParsingDispatcher.MessageMetadata.builder()
                         .type("type")
                         .sender("sender")
                         .build()
@@ -59,9 +59,9 @@ class AbstractMessageParserTest extends ActorSystemInitializerTest {
 
         managerStub.send(
                 testParserActor,
-                MessageConverter.StringTransportMessage.builder()
+                ParsingDispatcher.StringTransportMessage.builder()
                         .metadata(
-                        MessageConverter.MessageMetadata.builder()
+                        ParsingDispatcher.MessageMetadata.builder()
                                 .type("type")
                                 .sender("sender")
                                 .build()
@@ -88,9 +88,9 @@ class AbstractMessageParserTest extends ActorSystemInitializerTest {
 
         managerStub.send(
                 testParserActor,
-                MessageConverter.StringTransportMessage.builder()
+                ParsingDispatcher.StringTransportMessage.builder()
                         .metadata(
-                        MessageConverter.MessageMetadata.builder()
+                        ParsingDispatcher.MessageMetadata.builder()
                                 .type("type")
                                 .sender("sender")
                                 .build()
@@ -123,9 +123,9 @@ class AbstractMessageParserTest extends ActorSystemInitializerTest {
 
         managerStub.send(
                 testParserActor,
-                MessageConverter.StringTransportMessage.builder()
+                ParsingDispatcher.StringTransportMessage.builder()
                         .metadata(
-                        MessageConverter.MessageMetadata.builder()
+                        ParsingDispatcher.MessageMetadata.builder()
                                 .type("type")
                                 .sender("sender")
                                 .build()
@@ -160,9 +160,9 @@ class AbstractMessageParserTest extends ActorSystemInitializerTest {
 
         managerStub.send(
                 testParserActor,
-                MessageConverter.StringTransportMessage.builder()
+                ParsingDispatcher.StringTransportMessage.builder()
                         .metadata(
-                        MessageConverter.MessageMetadata.builder()
+                        ParsingDispatcher.MessageMetadata.builder()
                                 .type("type")
                                 .sender("sender")
                                 .build()

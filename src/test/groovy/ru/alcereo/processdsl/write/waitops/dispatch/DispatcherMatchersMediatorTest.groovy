@@ -9,7 +9,7 @@ import scala.concurrent.duration.FiniteDuration
 
 import java.util.concurrent.TimeUnit
 
-class DispatcherMediatorTest extends ActorSystemInitializerTest {
+class DispatcherMatchersMediatorTest extends ActorSystemInitializerTest {
 
 
     void testBroadcastAll() {
@@ -29,26 +29,26 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
 
         def message = new ParsedMessage(){}
         def mediatorActor = system.actorOf(
-                DispatcherMediator.props(router, managerStub.getRef(), message),
+                DispatcherMatchersMediator.props(router, managerStub.getRef(), message),
                 "mediator-actor"
         )
 
         executorClientStub.send(
                 mediatorActor,
-                DispatcherMediator.StartBroadcastMessage.builder().build()
+                DispatcherMatchersMediator.StartBroadcastMessage.builder().build()
         )
 
         matcherStubList.each {
             TestKit stub ->
                 stub.expectMsg(message)
                 stub.reply(
-                        AbstractEventDispatcherMatcher.ClientResponse.builder()
+                        AbstractEventMatcher.ClientResponse.builder()
                         .msg(message)
                         .build()
                 )
         }
 
-        executorClientStub.expectMsgClass(DispatcherMediator.BroadcastingFinished)
+        executorClientStub.expectMsgClass(DispatcherMatchersMediator.BroadcastingFinished)
 
         Thread.sleep(100)
 
@@ -75,20 +75,20 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
 
         def message = new ParsedMessage(){}
         def mediatorActor = system.actorOf(
-                DispatcherMediator.props(router, managerStub.getRef(), message),
+                DispatcherMatchersMediator.props(router, managerStub.getRef(), message),
                 "mediator-actor"
         )
 
         executorClientStub.send(
                 mediatorActor,
-                DispatcherMediator.StartBroadcastMessage.builder().build()
+                DispatcherMatchersMediator.StartBroadcastMessage.builder().build()
         )
 
         matcherStubList.each {
             TestKit stub ->
                 stub.expectMsg(message)
                 stub.reply(
-                        AbstractEventDispatcherMatcher.ClientResponseFailure.builder()
+                        AbstractEventMatcher.ClientResponseFailure.builder()
                                 .msg(message)
                                 .build()
                 )
@@ -100,7 +100,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
                 )
         }
 
-        executorClientStub.expectMsgClass(DispatcherMediator.BroadcastingFinished)
+        executorClientStub.expectMsgClass(DispatcherMatchersMediator.BroadcastingFinished)
 
         Thread.sleep(100)
 
@@ -127,20 +127,20 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
 
         def message = new ParsedMessage(){}
         def mediatorActor = system.actorOf(
-                DispatcherMediator.props(router, managerStub.getRef(), message),
+                DispatcherMatchersMediator.props(router, managerStub.getRef(), message),
                 "mediator-actor"
         )
 
         executorClientStub.send(
                 mediatorActor,
-                DispatcherMediator.StartBroadcastMessage.builder().build()
+                DispatcherMatchersMediator.StartBroadcastMessage.builder().build()
         )
 
         matcherStubList.each {
             TestKit stub ->
                 stub.expectMsg(message)
                 stub.reply(
-                        AbstractEventDispatcherMatcher.ClientResponseWithFinish.builder()
+                        AbstractEventMatcher.ClientResponseWithFinish.builder()
                                 .clientPath(new TestKit(system).getRef().path())
                                 .build()
                 )
@@ -152,7 +152,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
                 )
         }
 
-        executorClientStub.expectMsgClass(DispatcherMediator.BroadcastingFinished)
+        executorClientStub.expectMsgClass(DispatcherMatchersMediator.BroadcastingFinished)
 
         Thread.sleep(100)
 
@@ -179,13 +179,13 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
 
         def message = new ParsedMessage(){}
         def mediatorActor = system.actorOf(
-                DispatcherMediator.props(router, managerStub.getRef(), message),
+                DispatcherMatchersMediator.props(router, managerStub.getRef(), message),
                 "mediator-actor"
         )
 
         executorClientStub.send(
                 mediatorActor,
-                DispatcherMediator.StartBroadcastMessage.builder().build()
+                DispatcherMatchersMediator.StartBroadcastMessage.builder().build()
         )
 
         matcherStubList.each {
@@ -194,7 +194,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
         }
 
         matcherStubList.get(1).reply(
-                AbstractEventDispatcherMatcher.ClientResponse.builder()
+                AbstractEventMatcher.ClientResponse.builder()
                 .msg(message)
                 .build()
         )
@@ -202,7 +202,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
 
 
         matcherStubList.get(5).reply(
-                AbstractEventDispatcherMatcher.ClientResponse.builder()
+                AbstractEventMatcher.ClientResponse.builder()
                         .msg(message)
                         .build()
         )
@@ -211,7 +211,7 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
 
         def resultMessage = executorClientStub.expectMsgClass(
                 FiniteDuration.apply(6, TimeUnit.SECONDS),
-                DispatcherMediator.FailureResultBroadcasting
+                DispatcherMatchersMediator.FailureResultBroadcasting
         )
 
         assertEquals(
@@ -234,16 +234,16 @@ class DispatcherMediatorTest extends ActorSystemInitializerTest {
 
         def message = new ParsedMessage(){}
         def mediatorActor = system.actorOf(
-                DispatcherMediator.props(router, managerStub.getRef(), message),
+                DispatcherMatchersMediator.props(router, managerStub.getRef(), message),
                 "mediator-actor"
         )
 
         executorClientStub.send(
                 mediatorActor,
-                DispatcherMediator.StartBroadcastMessage.builder().build()
+                DispatcherMatchersMediator.StartBroadcastMessage.builder().build()
         )
 
-        executorClientStub.expectMsgClass(DispatcherMediator.BroadcastingFinished)
+        executorClientStub.expectMsgClass(DispatcherMatchersMediator.BroadcastingFinished)
 
         Thread.sleep(100)
 
