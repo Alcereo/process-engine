@@ -7,7 +7,7 @@ import org.junit.Before
 
 import java.nio.file.Paths
 
-class ActorSystemInitializerTest extends GroovyTestCase{
+abstract class ActorSystemInitializerTest extends GroovyTestCase{
 
     ActorSystem system
 
